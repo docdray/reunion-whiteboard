@@ -4,16 +4,18 @@ import { previewStore } from '../stores/previewStore.svelte'
 import { viewportStore } from '../stores/viewportStore.svelte'
 import { selectionStore } from '../stores/selectionStore.svelte'
 import { translateShapeData } from '../geometry/shapeBounds'
-import type { ShapeData } from '../protocol/messages'
+import { arrowHeadWings } from '../geometry/arrowHead'
+import type { ArrowShapeData, ShapeData } from '../protocol/messages'
 
-function withSelectionStyle(config: Record<string, unknown>, selected: boolean): Record<string, unknown> {
-  return {
-    ...config,
+type VisualNode = Konva.Shape | Konva.Group
+
+function applySelectionStyle(node: VisualNode, selected: boolean): void {
+  node.setAttrs({
     shadowColor: '#4a90d9',
     shadowBlur: selected ? 10 : 0,
     shadowOpacity: selected ? 0.9 : 0,
     shadowEnabled: selected,
-  }
+  })
 }
 
 function configFor(data: ShapeData): Record<string, unknown> {
@@ -62,12 +64,13 @@ function configFor(data: ShapeData): Record<string, unknown> {
         fill: data.filled ? data.color : null,
       }
     case 'arrow':
+      // Nur der gefüllte Fall nutzt diesen generischen Pfad (Konva.Arrow); der offene Fall
+      // wird als Konva.Group (Schaft + Chevron-Linien) separat behandelt, siehe unten.
       return {
         points: [data.x1, data.y1, data.x2, data.y2],
         stroke: data.color,
         strokeWidth: data.strokeWidth,
         fill: data.color,
-        fillEnabled: data.filled,
         pointerAtBeginning: data.doubleHeaded,
         pointerAtEnding: true,
       }
@@ -90,7 +93,77 @@ function configFor(data: ShapeData): Record<string, unknown> {
   }
 }
 
-function createNode(data: ShapeData, config: Record<string, unknown>): Konva.Shape {
+function isOpenArrow(data: ShapeData): data is ArrowShapeData {
+  return data.type === 'arrow' && !data.filled
+}
+
+/** ">"-Chevron aus GENAU zwei Linien (keine Rückseite), im Gegensatz zum geschlossenen Dreiecks-Umriss. */
+function buildChevron(tailX: number, tailY: number, tipX: number, tipY: number, stroke: string, strokeWidth: number): Konva.Line {
+  const [wing1, wing2] = arrowHeadWings(tailX, tailY, tipX, tipY)
+  return new Konva.Line({
+    points: [wing1.x, wing1.y, tipX, tipY, wing2.x, wing2.y],
+    stroke,
+    strokeWidth,
+    lineCap: 'round',
+    lineJoin: 'round',
+  })
+}
+
+function updateChevron(line: Konva.Line, tailX: number, tailY: number, tipX: number, tipY: number, stroke: string, strokeWidth: number): void {
+  const [wing1, wing2] = arrowHeadWings(tailX, tailY, tipX, tipY)
+  line.points([wing1.x, wing1.y, tipX, tipY, wing2.x, wing2.y])
+  line.stroke(stroke)
+  line.strokeWidth(strokeWidth)
+}
+
+function createOpenArrowGroup(data: ArrowShapeData): Konva.Group {
+  const group = new Konva.Group()
+  const shaft = new Konva.Line({
+    points: [data.x1, data.y1, data.x2, data.y2],
+    stroke: data.color,
+    strokeWidth: data.strokeWidth,
+    name: 'shaft',
+  })
+  group.add(shaft)
+
+  const endChevron = buildChevron(data.x1, data.y1, data.x2, data.y2, data.color, data.strokeWidth)
+  endChevron.name('chevron-end')
+  group.add(endChevron)
+
+  if (data.doubleHeaded) {
+    const beginChevron = buildChevron(data.x2, data.y2, data.x1, data.y1, data.color, data.strokeWidth)
+    beginChevron.name('chevron-begin')
+    group.add(beginChevron)
+  }
+  return group
+}
+
+function updateOpenArrowGroup(group: Konva.Group, data: ArrowShapeData): void {
+  const shaft = group.findOne<Konva.Line>('.shaft')
+  if (shaft) {
+    shaft.points([data.x1, data.y1, data.x2, data.y2])
+    shaft.stroke(data.color)
+    shaft.strokeWidth(data.strokeWidth)
+  }
+
+  const endChevron = group.findOne<Konva.Line>('.chevron-end')
+  if (endChevron) {
+    updateChevron(endChevron, data.x1, data.y1, data.x2, data.y2, data.color, data.strokeWidth)
+  }
+
+  const beginChevron = group.findOne<Konva.Line>('.chevron-begin')
+  if (data.doubleHeaded && !beginChevron) {
+    const created = buildChevron(data.x2, data.y2, data.x1, data.y1, data.color, data.strokeWidth)
+    created.name('chevron-begin')
+    group.add(created)
+  } else if (data.doubleHeaded && beginChevron) {
+    updateChevron(beginChevron, data.x2, data.y2, data.x1, data.y1, data.color, data.strokeWidth)
+  } else if (!data.doubleHeaded && beginChevron) {
+    beginChevron.destroy()
+  }
+}
+
+function createNode(data: ShapeData, config: Record<string, unknown>): VisualNode {
   switch (data.type) {
     case 'freehand':
     case 'line':
@@ -102,10 +175,41 @@ function createNode(data: ShapeData, config: Record<string, unknown>): Konva.Sha
     case 'ellipse':
       return new Konva.Ellipse(config)
     case 'arrow':
-      return new Konva.Arrow(config)
+      return isOpenArrow(data) ? createOpenArrowGroup(data) : new Konva.Arrow(config)
     case 'text':
       return new Konva.Text(config)
   }
+}
+
+/** Aktualisiert einen bestehenden Node in-place; baut bei Bedarf (offener Pfeil <-> anderer Typ) neu. */
+function syncNode(
+  layer: Konva.Layer,
+  map: Map<string, VisualNode>,
+  key: string,
+  data: ShapeData,
+  applyStyle: (node: VisualNode) => void,
+): void {
+  const existing = map.get(key)
+  const wantsGroup = isOpenArrow(data)
+  const existingIsGroup = existing instanceof Konva.Group
+
+  if (existing && wantsGroup === existingIsGroup) {
+    if (wantsGroup) {
+      updateOpenArrowGroup(existing as Konva.Group, data as ArrowShapeData)
+    } else {
+      existing.setAttrs(configFor(data))
+    }
+    applyStyle(existing)
+    return
+  }
+
+  if (existing) {
+    existing.destroy()
+  }
+  const created = wantsGroup ? createOpenArrowGroup(data as ArrowShapeData) : createNode(data, configFor(data))
+  map.set(key, created)
+  layer.add(created)
+  applyStyle(created)
 }
 
 export function konvaStage(node: HTMLDivElement): { destroy(): void } {
@@ -117,12 +221,18 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
   const layer = new Konva.Layer()
   stage.add(layer)
 
-  const nodesById = new Map<string, Konva.Shape>()
-  const previewNodesByKey = new Map<string, Konva.Shape>()
+  const nodesById = new Map<string, VisualNode>()
+  const previewNodesByKey = new Map<string, VisualNode>()
 
-  function applyPreviewStyle(shape: Konva.Shape): void {
-    shape.opacity(0.6)
-    shape.dash([6, 4])
+  function applyPreviewStyle(node: VisualNode): void {
+    node.opacity(0.6)
+    if (node instanceof Konva.Group) {
+      for (const child of node.getChildren()) {
+        if (child instanceof Konva.Line) child.dash([6, 4])
+      }
+    } else {
+      (node as Konva.Shape).dash([6, 4])
+    }
   }
 
   function resize(): void {
@@ -150,15 +260,7 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
         seen.add(obj.id)
         const isSelected = selected.has(obj.id)
         const data = isSelected && moveDelta ? translateShapeData(obj.data, moveDelta.dx, moveDelta.dy) : obj.data
-        const config = withSelectionStyle(configFor(data), isSelected)
-        const existing = nodesById.get(obj.id)
-        if (existing) {
-          existing.setAttrs(config)
-        } else {
-          const created = createNode(data, config)
-          nodesById.set(obj.id, created)
-          layer.add(created)
-        }
+        syncNode(layer, nodesById, obj.id, data, (n) => applySelectionStyle(n, isSelected))
       }
       for (const [id, konvaNode] of nodesById) {
         if (!seen.has(id)) {
@@ -179,17 +281,10 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
       const seen = new Set<string>()
       for (const [key, data] of entries) {
         seen.add(key)
-        const existing = previewNodesByKey.get(key)
-        if (existing) {
-          existing.setAttrs(configFor(data))
-          existing.moveToTop()
-        } else {
-          const created = createNode(data, configFor(data))
-          applyPreviewStyle(created)
-          previewNodesByKey.set(key, created)
-          layer.add(created)
-          created.moveToTop()
-        }
+        syncNode(layer, previewNodesByKey, key, data, (n) => {
+          applyPreviewStyle(n)
+          n.moveToTop()
+        })
       }
       for (const [key, konvaNode] of previewNodesByKey) {
         if (!seen.has(key)) {
