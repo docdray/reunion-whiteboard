@@ -28,6 +28,12 @@ describe('toolStore', () => {
     expect(toolStore.tool).toBe('rect')
   })
 
+  it('switches to the eraser tool', () => {
+    toolStore.setMode('draw')
+    toolStore.setTool('eraser')
+    expect(toolStore.tool).toBe('eraser')
+  })
+
   it('updates drawing settings', () => {
     toolStore.setColor('#ff0000')
     toolStore.setStrokeWidth(5)

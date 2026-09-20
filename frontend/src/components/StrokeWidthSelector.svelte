@@ -2,9 +2,10 @@
   import { toolStore } from '../lib/stores/toolStore.svelte'
 
   const widths = [1, 2, 4, 8]
+  const groupLabel = $derived(toolStore.tool === 'eraser' ? 'Radiergröße' : 'Linienstärke')
 </script>
 
-<div class="row" role="group" aria-label="Linienstärke">
+<div class="row" role="group" aria-label={groupLabel}>
   {#each widths as w (w)}
     <button type="button" class:active={toolStore.strokeWidth === w} onclick={() => toolStore.setStrokeWidth(w)}>
       {w}

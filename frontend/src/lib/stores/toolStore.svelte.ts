@@ -2,10 +2,11 @@ import type { ShapeType } from '../protocol/messages'
 import type { DrawSettings } from '../geometry/shapeFromDrag'
 
 export type Mode = 'navigation' | 'draw' | 'select'
+export type DrawTool = ShapeType | 'eraser'
 
 class ToolStore {
   mode = $state<Mode>('navigation')
-  tool = $state<ShapeType>('freehand')
+  tool = $state<DrawTool>('freehand')
   color = $state('#000000')
   strokeWidth = $state(2)
   filled = $state(false)
@@ -21,7 +22,7 @@ class ToolStore {
     this.mode = mode
   }
 
-  setTool(tool: ShapeType): void {
+  setTool(tool: DrawTool): void {
     this.tool = tool
   }
 

@@ -11,6 +11,7 @@
   import { zoomToCursor, wheelScaleFactor } from '../lib/geometry/zoomToCursor'
   import { DrawInteraction } from '../lib/interaction/drawMode'
   import { SelectInteraction } from '../lib/interaction/selectMode'
+  import { EraserInteraction, eraserRadius } from '../lib/interaction/eraserMode'
   import Toolbar from './Toolbar.svelte'
 
   interface Props {
@@ -28,6 +29,7 @@
   let lastPointer = { x: 0, y: 0 }
   let lastCursorSendAt = 0
   let lastDrawPreviewSendAt = 0
+  let eraserPointer = $state<{ x: number; y: number } | null>(null)
 
   const CURSOR_SEND_INTERVAL_MS = 50
   const DRAW_PREVIEW_SEND_INTERVAL_MS = 50
@@ -54,6 +56,12 @@
       socket?.send({ type: 'object-create', shapeType, data })
     },
     requestTextContent: () => window.prompt('Text eingeben:'),
+  })
+
+  const eraserInteraction = new EraserInteraction({
+    getObjects: () => canvasStore.objects,
+    getRadius: () => eraserRadius(toolStore.strokeWidth),
+    onErase: (ids) => socket?.send({ type: 'object-delete', ids }),
   })
 
   const selectInteraction = new SelectInteraction({
@@ -150,7 +158,11 @@
     const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
 
     if (toolStore.mode === 'draw') {
-      drawInteraction.pointerDown(toolStore.tool, world)
+      if (toolStore.tool === 'eraser') {
+        eraserInteraction.pointerDown(world)
+      } else {
+        drawInteraction.pointerDown(toolStore.tool, world)
+      }
       return
     }
 
@@ -165,12 +177,20 @@
 
   function handlePointerMove(event: PointerEvent): void {
     const rect = containerEl.getBoundingClientRect()
-    const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
+    const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+    const world = screenToWorld(screen.x, screen.y)
+
+    eraserPointer = toolStore.mode === 'draw' && toolStore.tool === 'eraser' ? screen : null
 
     const now = Date.now()
     if (now - lastCursorSendAt >= CURSOR_SEND_INTERVAL_MS) {
       lastCursorSendAt = now
       socket?.send({ type: 'cursor-move', x: world.x, y: world.y })
+    }
+
+    if (toolStore.mode === 'draw' && toolStore.tool === 'eraser') {
+      eraserInteraction.pointerMove(world)
+      return
     }
 
     if (toolStore.mode === 'draw' && drawInteraction.isDragging) {
@@ -197,6 +217,11 @@
     const rect = containerEl.getBoundingClientRect()
     const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
 
+    if (toolStore.mode === 'draw' && toolStore.tool === 'eraser') {
+      eraserInteraction.pointerUp()
+      return
+    }
+
     if (toolStore.mode === 'draw' && drawInteraction.isDragging) {
       drawInteraction.pointerUp(world)
       return
@@ -209,6 +234,12 @@
 
     isPanning = false
   }
+
+  const eraserPreview = $derived(
+    eraserPointer
+      ? { x: eraserPointer.x, y: eraserPointer.y, radius: eraserRadius(toolStore.strokeWidth) * viewportStore.scale }
+      : null,
+  )
 
   const remoteCursors = $derived(
     Object.values(presenceStore.users).filter((u) => u.cursorX != null && u.cursorY != null),
@@ -232,6 +263,7 @@
   onpointerdown={handlePointerDown}
   onpointermove={handlePointerMove}
   onpointerup={handlePointerUp}
+  onpointerleave={() => (eraserPointer = null)}
 ></div>
 
 <!--
@@ -249,6 +281,12 @@
 {/each}
 {#if selectionStore.marqueeRect}
   <div class="marquee" style={marqueeStyle(selectionStore.marqueeRect)}></div>
+{/if}
+{#if eraserPreview}
+  <div
+    class="eraser-preview"
+    style={`left:${eraserPreview.x - eraserPreview.radius}px; top:${eraserPreview.y - eraserPreview.radius}px; width:${eraserPreview.radius * 2}px; height:${eraserPreview.radius * 2}px;`}
+  ></div>
 {/if}
 
 <Toolbar {canvasName} {onLeave} />
@@ -284,6 +322,15 @@
     z-index: 4;
     border: 1px dashed #4a90d9;
     background: rgba(74, 144, 217, 0.1);
+  }
+
+  .eraser-preview {
+    position: fixed;
+    pointer-events: none;
+    z-index: 4;
+    border: 1px dashed #d94a4a;
+    border-radius: 50%;
+    background: rgba(217, 74, 74, 0.08);
   }
 
   .remote-cursor-label {

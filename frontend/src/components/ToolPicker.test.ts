@@ -21,9 +21,9 @@ describe('ToolPicker', () => {
     expect(toolStore.tool).toBe('ellipse')
   })
 
-  it('renders all seven tools', () => {
+  it('renders all eight tools', () => {
     render(ToolPicker)
-    for (const label of ['Freihand', 'Linie', 'Rechteck', 'Kreis', 'Ellipse', 'Text', 'Pfeil']) {
+    for (const label of ['Freihand', 'Linie', 'Rechteck', 'Kreis', 'Ellipse', 'Text', 'Pfeil', 'Radierer']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
   })
@@ -32,5 +32,11 @@ describe('ToolPicker', () => {
     render(ToolPicker)
     await fireEvent.click(screen.getByText('Pfeil'))
     expect(toolStore.tool).toBe('arrow')
+  })
+
+  it('switches to the eraser tool on click', async () => {
+    render(ToolPicker)
+    await fireEvent.click(screen.getByText('Radierer'))
+    expect(toolStore.tool).toBe('eraser')
   })
 })

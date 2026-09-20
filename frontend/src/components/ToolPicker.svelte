@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { toolStore } from '../lib/stores/toolStore.svelte'
-  import type { ShapeType } from '../lib/protocol/messages'
+  import { toolStore, type DrawTool } from '../lib/stores/toolStore.svelte'
 
-  const tools: { value: ShapeType; label: string }[] = [
+  const tools: { value: DrawTool; label: string }[] = [
     { value: 'freehand', label: 'Freihand' },
     { value: 'line', label: 'Linie' },
     { value: 'rect', label: 'Rechteck' },
@@ -10,6 +9,7 @@
     { value: 'ellipse', label: 'Ellipse' },
     { value: 'text', label: 'Text' },
     { value: 'arrow', label: 'Pfeil' },
+    { value: 'eraser', label: 'Radierer' },
   ]
 </script>
 

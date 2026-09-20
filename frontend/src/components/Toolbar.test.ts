@@ -59,6 +59,13 @@ describe('Toolbar', () => {
     expect(screen.getByRole('group', { name: 'Textformatierung' })).toBeInTheDocument()
   })
 
+  it('shows the stroke width group with an eraser-specific label for the eraser tool', () => {
+    toolStore.setMode('draw')
+    toolStore.setTool('eraser')
+    render(Toolbar, { props: { canvasName: 'Test', onLeave: vi.fn() } })
+    expect(screen.getByRole('group', { name: 'Radiergröße' })).toBeInTheDocument()
+  })
+
   it('calls onLeave when the leave button is clicked', async () => {
     const onLeave = vi.fn()
     render(Toolbar, { props: { canvasName: 'Mein Canvas', onLeave } })
