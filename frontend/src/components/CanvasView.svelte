@@ -11,7 +11,7 @@
   import { zoomToCursor, wheelScaleFactor } from '../lib/geometry/zoomToCursor'
   import { DrawInteraction } from '../lib/interaction/drawMode'
   import { SelectInteraction } from '../lib/interaction/selectMode'
-  import DrawToolPicker from './DrawToolPicker.svelte'
+  import Toolbar from './Toolbar.svelte'
 
   interface Props {
     canvasId: string
@@ -246,8 +246,7 @@
   {/if}
 </div>
 
-<DrawToolPicker />
-<button type="button" class="leave-button" onclick={onLeave}>Canvas "{canvasName}" verlassen</button>
+<Toolbar {canvasName} {onLeave} />
 
 <style>
   .canvas-container {
@@ -256,13 +255,6 @@
     overflow: hidden;
     touch-action: none;
     background: #f5f5f5;
-  }
-
-  .leave-button {
-    position: fixed;
-    top: 12px;
-    left: 12px;
-    z-index: 10;
   }
 
   .remote-cursor {
