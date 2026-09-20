@@ -6,9 +6,11 @@
   import { previewStore } from '../lib/stores/previewStore.svelte'
   import { viewportStore } from '../lib/stores/viewportStore.svelte'
   import { toolStore } from '../lib/stores/toolStore.svelte'
+  import { selectionStore } from '../lib/stores/selectionStore.svelte'
   import { konvaStage } from '../lib/konva/stageAction.svelte'
   import { zoomToCursor, wheelScaleFactor } from '../lib/geometry/zoomToCursor'
   import { DrawInteraction } from '../lib/interaction/drawMode'
+  import { SelectInteraction } from '../lib/interaction/selectMode'
   import DrawToolPicker from './DrawToolPicker.svelte'
 
   interface Props {
@@ -54,11 +56,38 @@
     requestTextContent: () => window.prompt('Text eingeben:'),
   })
 
+  const selectInteraction = new SelectInteraction({
+    getObjects: () => canvasStore.objects,
+    getSelectedIds: () => selectionStore.selectedIds,
+    select: (ids, additive) => selectionStore.select(ids, additive),
+    onMovePreview: (dx, dy) => selectionStore.setMoveDelta(dx, dy),
+    onMovePreviewClear: () => selectionStore.clearMoveDelta(),
+    onMoveCommit: (updates) => socket?.send({ type: 'object-update', objects: updates }),
+    onMarqueeChange: (rect) => selectionStore.setMarqueeRect(rect),
+  })
+
+  function isEditableTarget(target: EventTarget | null): boolean {
+    const el = target as HTMLElement | null
+    return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+  }
+
+  function handleKeyDown(event: KeyboardEvent): void {
+    if (toolStore.mode !== 'select') return
+    if (event.key !== 'Delete' && event.key !== 'Backspace') return
+    if (isEditableTarget(event.target)) return
+    const ids = [...selectionStore.selectedIds]
+    if (ids.length === 0) return
+    event.preventDefault()
+    socket?.send({ type: 'object-delete', ids })
+  }
+
   onMount(() => {
     canvasStore.reset()
     presenceStore.reset()
     previewStore.reset()
+    selectionStore.reset()
     viewportStore.setViewport({ panX: 0, panY: 0, scale: 1 })
+    window.addEventListener('keydown', handleKeyDown)
 
     socket = connectCanvasSocket(canvasId, displayName)
     socket.onMessage((msg) => {
@@ -85,6 +114,7 @@
           break
         case 'object-deleted':
           canvasStore.remove(msg.ids)
+          selectionStore.removeIds(msg.ids)
           break
         case 'draw-preview-relay':
           previewStore.upsertOther(msg.userId, { shapeType: msg.shapeType, data: msg.data })
@@ -94,10 +124,12 @@
   })
 
   onDestroy(() => {
+    window.removeEventListener('keydown', handleKeyDown)
     socket?.close()
     canvasStore.reset()
     presenceStore.reset()
     previewStore.reset()
+    selectionStore.reset()
   })
 
   function handleWheel(event: WheelEvent): void {
@@ -114,11 +146,16 @@
 
   function handlePointerDown(event: PointerEvent): void {
     containerEl.setPointerCapture(event.pointerId)
+    const rect = containerEl.getBoundingClientRect()
+    const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
 
     if (toolStore.mode === 'draw') {
-      const rect = containerEl.getBoundingClientRect()
-      const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
       drawInteraction.pointerDown(toolStore.tool, world)
+      return
+    }
+
+    if (toolStore.mode === 'select') {
+      selectInteraction.pointerDown(world, event.ctrlKey || event.metaKey)
       return
     }
 
@@ -141,6 +178,11 @@
       return
     }
 
+    if (toolStore.mode === 'select') {
+      selectInteraction.pointerMove(world)
+      return
+    }
+
     if (isPanning) {
       const dx = event.clientX - lastPointer.x
       const dy = event.clientY - lastPointer.y
@@ -152,10 +194,16 @@
   function handlePointerUp(event: PointerEvent): void {
     containerEl.releasePointerCapture(event.pointerId)
 
+    const rect = containerEl.getBoundingClientRect()
+    const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
+
     if (toolStore.mode === 'draw' && drawInteraction.isDragging) {
-      const rect = containerEl.getBoundingClientRect()
-      const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
       drawInteraction.pointerUp(world)
+      return
+    }
+
+    if (toolStore.mode === 'select') {
+      selectInteraction.pointerUp(world)
       return
     }
 
@@ -165,6 +213,14 @@
   const remoteCursors = $derived(
     Object.values(presenceStore.users).filter((u) => u.cursorX != null && u.cursorY != null),
   )
+
+  function marqueeStyle(rect: { x: number; y: number; width: number; height: number }): string {
+    const left = rect.x * viewportStore.scale + viewportStore.panX
+    const top = rect.y * viewportStore.scale + viewportStore.panY
+    const width = rect.width * viewportStore.scale
+    const height = rect.height * viewportStore.scale
+    return `left:${left}px; top:${top}px; width:${width}px; height:${height}px;`
+  }
 </script>
 
 <div
@@ -185,6 +241,9 @@
       <span class="remote-cursor-label">{user.displayName}</span>
     </div>
   {/each}
+  {#if selectionStore.marqueeRect}
+    <div class="marquee" style={marqueeStyle(selectionStore.marqueeRect)}></div>
+  {/if}
 </div>
 
 <DrawToolPicker />
@@ -220,6 +279,14 @@
     height: 10px;
     border-radius: 50%;
     background: var(--cursor-color, #333);
+  }
+
+  .marquee {
+    position: fixed;
+    pointer-events: none;
+    z-index: 4;
+    border: 1px dashed #4a90d9;
+    background: rgba(74, 144, 217, 0.1);
   }
 
   .remote-cursor-label {

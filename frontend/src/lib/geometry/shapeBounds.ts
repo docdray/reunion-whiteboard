@@ -1,0 +1,84 @@
+import type { PointDto, ShapeData } from '../protocol/messages'
+
+export interface Bounds {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+export interface RectLike {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** Grobe Näherung ohne echtes Canvas-Text-Measuring: durchschnittliche Zeichenbreite ≈ 0.6 * fontSize. */
+const TEXT_CHAR_WIDTH_FACTOR = 0.6
+const TEXT_LINE_HEIGHT_FACTOR = 1.2
+
+export function shapeBounds(data: ShapeData): Bounds {
+  switch (data.type) {
+    case 'freehand': {
+      const xs = data.points.map((p) => p.x)
+      const ys = data.points.map((p) => p.y)
+      return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) }
+    }
+    case 'line':
+      return {
+        minX: Math.min(data.x1, data.x2),
+        minY: Math.min(data.y1, data.y2),
+        maxX: Math.max(data.x1, data.x2),
+        maxY: Math.max(data.y1, data.y2),
+      }
+    case 'rect':
+      return { minX: data.x, minY: data.y, maxX: data.x + data.width, maxY: data.y + data.height }
+    case 'circle':
+      return {
+        minX: data.x - data.radius,
+        minY: data.y - data.radius,
+        maxX: data.x + data.radius,
+        maxY: data.y + data.radius,
+      }
+    case 'ellipse':
+      return {
+        minX: data.x - data.radiusX,
+        minY: data.y - data.radiusY,
+        maxX: data.x + data.radiusX,
+        maxY: data.y + data.radiusY,
+      }
+    case 'text': {
+      const width = Math.max(data.content.length, 1) * data.fontSize * TEXT_CHAR_WIDTH_FACTOR
+      const height = data.fontSize * TEXT_LINE_HEIGHT_FACTOR
+      return { minX: data.x, minY: data.y, maxX: data.x + width, maxY: data.y + height }
+    }
+  }
+}
+
+export function boundsIntersect(a: Bounds, b: Bounds): boolean {
+  return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY
+}
+
+export function boundsFromRect(rect: RectLike): Bounds {
+  return { minX: rect.x, minY: rect.y, maxX: rect.x + rect.width, maxY: rect.y + rect.height }
+}
+
+export function containsPoint(bounds: Bounds, point: PointDto): boolean {
+  return point.x >= bounds.minX && point.x <= bounds.maxX && point.y >= bounds.minY && point.y <= bounds.maxY
+}
+
+/** Verschiebt ShapeData um (dx, dy) in Weltkoordinaten; liefert eine neue Instanz desselben Typs. */
+export function translateShapeData(data: ShapeData, dx: number, dy: number): ShapeData {
+  switch (data.type) {
+    case 'freehand':
+      return { ...data, points: data.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) }
+    case 'line':
+      return { ...data, x1: data.x1 + dx, y1: data.y1 + dy, x2: data.x2 + dx, y2: data.y2 + dy }
+    case 'rect':
+    case 'circle':
+    case 'ellipse':
+    case 'text':
+      return { ...data, x: data.x + dx, y: data.y + dy }
+  }
+}

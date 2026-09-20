@@ -5,6 +5,7 @@
   const modes: { value: Mode; label: string }[] = [
     { value: 'navigation', label: 'Navigation' },
     { value: 'draw', label: 'Zeichnen' },
+    { value: 'select', label: 'Markieren' },
   ]
 
   const tools: { value: ShapeType; label: string }[] = [

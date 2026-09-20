@@ -2,7 +2,19 @@ import Konva from 'konva'
 import { canvasStore } from '../stores/canvasStore.svelte'
 import { previewStore } from '../stores/previewStore.svelte'
 import { viewportStore } from '../stores/viewportStore.svelte'
+import { selectionStore } from '../stores/selectionStore.svelte'
+import { translateShapeData } from '../geometry/shapeBounds'
 import type { ShapeData } from '../protocol/messages'
+
+function withSelectionStyle(config: Record<string, unknown>, selected: boolean): Record<string, unknown> {
+  return {
+    ...config,
+    shadowColor: '#4a90d9',
+    shadowBlur: selected ? 10 : 0,
+    shadowOpacity: selected ? 0.9 : 0,
+    shadowEnabled: selected,
+  }
+}
 
 function configFor(data: ShapeData): Record<string, unknown> {
   switch (data.type) {
@@ -68,8 +80,7 @@ function configFor(data: ShapeData): Record<string, unknown> {
   }
 }
 
-function createNode(data: ShapeData): Konva.Shape {
-  const config = configFor(data)
+function createNode(data: ShapeData, config: Record<string, unknown>): Konva.Shape {
   switch (data.type) {
     case 'freehand':
     case 'line':
@@ -120,14 +131,19 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
 
     $effect(() => {
       const current = canvasStore.objects
+      const selected = selectionStore.selectedIds
+      const moveDelta = selectionStore.moveDelta
       const seen = new Set<string>()
       for (const obj of current) {
         seen.add(obj.id)
+        const isSelected = selected.has(obj.id)
+        const data = isSelected && moveDelta ? translateShapeData(obj.data, moveDelta.dx, moveDelta.dy) : obj.data
+        const config = withSelectionStyle(configFor(data), isSelected)
         const existing = nodesById.get(obj.id)
         if (existing) {
-          existing.setAttrs(configFor(obj.data))
+          existing.setAttrs(config)
         } else {
-          const created = createNode(obj.data)
+          const created = createNode(data, config)
           nodesById.set(obj.id, created)
           layer.add(created)
         }
@@ -156,7 +172,7 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
           existing.setAttrs(configFor(data))
           existing.moveToTop()
         } else {
-          const created = createNode(data)
+          const created = createNode(data, configFor(data))
           applyPreviewStyle(created)
           previewNodesByKey.set(key, created)
           layer.add(created)
