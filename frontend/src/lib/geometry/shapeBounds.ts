@@ -69,6 +69,17 @@ export function boundsIntersect(a: Bounds, b: Bounds): boolean {
   return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY
 }
 
+/** Vereinigt mehrere Bounding-Boxen zu einer Gesamt-Box; `null` bei leerer Liste. */
+export function unionBounds(list: Bounds[]): Bounds | null {
+  if (list.length === 0) return null
+  return list.reduce((acc, b) => ({
+    minX: Math.min(acc.minX, b.minX),
+    minY: Math.min(acc.minY, b.minY),
+    maxX: Math.max(acc.maxX, b.maxX),
+    maxY: Math.max(acc.maxY, b.maxY),
+  }))
+}
+
 export function boundsFromRect(rect: RectLike): Bounds {
   return { minX: rect.x, minY: rect.y, maxX: rect.x + rect.width, maxY: rect.y + rect.height }
 }

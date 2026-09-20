@@ -9,6 +9,8 @@
   import { selectionStore } from '../lib/stores/selectionStore.svelte'
   import { konvaStage } from '../lib/konva/stageAction.svelte'
   import { zoomToCursor, wheelScaleFactor } from '../lib/geometry/zoomToCursor'
+  import { centerView } from '../lib/geometry/centerView'
+  import { shapeBounds, unionBounds } from '../lib/geometry/shapeBounds'
   import { DrawInteraction } from '../lib/interaction/drawMode'
   import { SelectInteraction } from '../lib/interaction/selectMode'
   import { EraserInteraction, eraserRadius } from '../lib/interaction/eraserMode'
@@ -211,6 +213,11 @@
     }
   }
 
+  function handleCenterView(): void {
+    const bounds = unionBounds(canvasStore.objects.map((o) => shapeBounds(o.data)))
+    viewportStore.setViewport(centerView(bounds, containerEl.clientWidth, containerEl.clientHeight))
+  }
+
   function handlePointerUp(event: PointerEvent): void {
     containerEl.releasePointerCapture(event.pointerId)
 
@@ -289,7 +296,7 @@
   ></div>
 {/if}
 
-<Toolbar {canvasName} {onLeave} />
+<Toolbar {canvasName} {onLeave} onCenterView={handleCenterView} />
 
 <style>
   .canvas-container {

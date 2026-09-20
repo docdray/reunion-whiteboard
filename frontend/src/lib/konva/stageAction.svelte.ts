@@ -5,7 +5,10 @@ import { viewportStore } from '../stores/viewportStore.svelte'
 import { selectionStore } from '../stores/selectionStore.svelte'
 import { translateShapeData } from '../geometry/shapeBounds'
 import { arrowHeadWings } from '../geometry/arrowHead'
+import { computeGridLines } from '../geometry/gridLines'
 import type { ArrowShapeData, ShapeData, StickyNoteShapeData } from '../protocol/messages'
+
+const GRID_COLOR = '#e3e3e3'
 
 type VisualNode = Konva.Shape | Konva.Group
 
@@ -290,6 +293,33 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
     width: node.clientWidth,
     height: node.clientHeight,
   })
+  const gridLayer = new Konva.Layer({ listening: false })
+  const gridShape = new Konva.Shape({
+    listening: false,
+    stroke: GRID_COLOR,
+    strokeWidth: 1,
+    strokeScaleEnabled: false,
+    sceneFunc: (ctx, shape) => {
+      const { verticalX, horizontalY, bounds } = computeGridLines(
+        { panX: viewportStore.panX, panY: viewportStore.panY, scale: viewportStore.scale },
+        stage.width(),
+        stage.height(),
+      )
+      ctx.beginPath()
+      for (const x of verticalX) {
+        ctx.moveTo(x, bounds.minY)
+        ctx.lineTo(x, bounds.maxY)
+      }
+      for (const y of horizontalY) {
+        ctx.moveTo(bounds.minX, y)
+        ctx.lineTo(bounds.maxX, y)
+      }
+      ctx.strokeShape(shape)
+    },
+  })
+  gridLayer.add(gridShape)
+  stage.add(gridLayer)
+
   const layer = new Konva.Layer()
   stage.add(layer)
 
@@ -310,6 +340,7 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
   function resize(): void {
     stage.width(node.clientWidth)
     stage.height(node.clientHeight)
+    gridLayer.batchDraw()
   }
 
   const resizeObserver = new ResizeObserver(resize)
@@ -321,6 +352,7 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
       stage.y(viewportStore.panY)
       stage.scale({ x: viewportStore.scale, y: viewportStore.scale })
       layer.batchDraw()
+      gridLayer.batchDraw()
     })
 
     $effect(() => {

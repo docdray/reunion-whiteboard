@@ -11,11 +11,13 @@
   interface Props {
     canvasName: string
     onLeave: () => void
+    onCenterView: () => void
   }
 
-  let { canvasName, onLeave }: Props = $props()
+  let { canvasName, onLeave, onCenterView }: Props = $props()
 
   const isDraw = $derived(toolStore.mode === 'draw')
+  const isNavigation = $derived(toolStore.mode === 'navigation')
   const showFilledToggle = $derived(
     isDraw &&
       (toolStore.tool === 'rect' ||
@@ -32,6 +34,10 @@
   <button type="button" class="leave-button" onclick={onLeave}>Canvas "{canvasName}" verlassen</button>
 
   <ModeSwitch />
+
+  {#if isNavigation}
+    <button type="button" onclick={onCenterView}>Zentrieren</button>
+  {/if}
 
   {#if isDraw}
     <ToolPicker />
