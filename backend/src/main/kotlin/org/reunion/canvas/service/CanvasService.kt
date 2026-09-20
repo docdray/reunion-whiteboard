@@ -7,6 +7,7 @@ import org.reunion.canvas.dto.CanvasSummaryDto
 import org.reunion.canvas.entity.CanvasEntity
 import org.reunion.canvas.presence.PresenceRegistry
 import org.reunion.canvas.repository.CanvasRepository
+import org.reunion.canvas.ws.LobbyBroadcaster
 import java.time.Instant
 import java.util.UUID
 
@@ -17,10 +18,16 @@ class CanvasNotFoundException(val canvasId: UUID) : RuntimeException("Canvas $ca
 class CanvasService @Inject constructor(
     private val canvasRepository: CanvasRepository,
     private val presenceRegistry: PresenceRegistry,
+    private val lobbyBroadcaster: LobbyBroadcaster,
 ) {
 
+    @Transactional
     fun list(): List<CanvasSummaryDto> =
         canvasRepository.listAll().map { it.toDto() }
+
+    @Transactional
+    fun getSummary(id: UUID): CanvasSummaryDto? =
+        canvasRepository.findById(id)?.toDto()
 
     @Transactional
     fun create(name: String): CanvasSummaryDto {
@@ -29,7 +36,9 @@ class CanvasService @Inject constructor(
             this.createdAt = Instant.now()
         }
         canvasRepository.persist(entity)
-        return entity.toDto()
+        val dto = entity.toDto()
+        lobbyBroadcaster.canvasAdded(dto)
+        return dto
     }
 
     @Transactional
@@ -41,6 +50,7 @@ class CanvasService @Inject constructor(
         if (!deleted) {
             throw CanvasNotFoundException(id)
         }
+        lobbyBroadcaster.canvasRemoved(id)
     }
 
     private fun CanvasEntity.toDto() = CanvasSummaryDto(

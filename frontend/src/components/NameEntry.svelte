@@ -25,3 +25,30 @@
     onkeydown={(e) => e.key === 'Enter' && commit()}
   />
 </div>
+
+<style>
+  .name-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6b7280;
+  }
+
+  input {
+    padding: 0.65rem 0.9rem;
+    border: 1px solid #d8dbe1;
+    border-radius: 10px;
+    font-size: 1rem;
+  }
+
+  input:focus {
+    outline: none;
+    border-color: #4f5df6;
+    box-shadow: 0 0 0 3px rgba(79, 93, 246, 0.15);
+  }
+</style>

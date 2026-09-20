@@ -11,16 +11,18 @@ const canvas: CanvasSummaryDto = {
 }
 
 describe('CanvasListItem', () => {
-  it('shows the delete button when there are no active users', () => {
+  it('enables the delete button when there are no active users', () => {
     render(CanvasListItem, { props: { canvas, onOpen: vi.fn(), onDelete: vi.fn() } })
-    expect(screen.getByText('Löschen')).toBeInTheDocument()
+    expect(screen.getByText('Löschen')).not.toBeDisabled()
   })
 
-  it('hides the delete button when there are active users', () => {
+  it('disables the delete button with a tooltip when there are active users', () => {
     render(CanvasListItem, {
       props: { canvas: { ...canvas, activeUsers: 2 }, onOpen: vi.fn(), onDelete: vi.fn() },
     })
-    expect(screen.queryByText('Löschen')).not.toBeInTheDocument()
+    const button = screen.getByText('Löschen')
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('title', 'Canvas wird noch verwendet')
   })
 
   it('calls onOpen with the canvas id and name when "Öffnen" is clicked', async () => {

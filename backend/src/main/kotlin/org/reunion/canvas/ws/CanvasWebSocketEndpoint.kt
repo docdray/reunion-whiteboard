@@ -10,6 +10,7 @@ import io.quarkus.websockets.next.WebSocketConnection
 import jakarta.inject.Inject
 import org.reunion.canvas.presence.PresenceRegistry
 import org.reunion.canvas.service.CanvasObjectService
+import org.reunion.canvas.service.CanvasService
 import org.reunion.canvas.ws.protocol.ClientMessage
 import org.reunion.canvas.ws.protocol.ServerMessage
 import java.net.URLDecoder
@@ -26,6 +27,8 @@ import java.util.UUID
 class CanvasWebSocketEndpoint @Inject constructor(
     private val presence: PresenceRegistry,
     private val canvasObjectService: CanvasObjectService,
+    private val canvasService: CanvasService,
+    private val lobbyBroadcaster: LobbyBroadcaster,
 ) {
 
     @OnOpen
@@ -43,6 +46,7 @@ class CanvasWebSocketEndpoint @Inject constructor(
         connection.broadcast()
             .filter { it.id() != connection.id() && it.pathParam("canvasId") == canvasId }
             .sendTextAndAwait(ServerMessage.UserJoined(info.userId, info.displayName, info.color))
+        canvasService.getSummary(id)?.let { lobbyBroadcaster.canvasUpdated(it) }
 
         return ServerMessage.InitialState(
             selfUserId = info.userId,
@@ -94,10 +98,12 @@ class CanvasWebSocketEndpoint @Inject constructor(
 
     @OnClose
     fun onClose(connection: WebSocketConnection, @PathParam canvasId: String) {
-        val removed = presence.leave(UUID.fromString(canvasId), connection.id()) ?: return
+        val id = UUID.fromString(canvasId)
+        val removed = presence.leave(id, connection.id()) ?: return
         connection.broadcast()
             .filter { it.id() != connection.id() && it.pathParam("canvasId") == canvasId }
             .sendTextAndAwait(ServerMessage.UserLeft(removed.userId))
+        canvasService.getSummary(id)?.let { lobbyBroadcaster.canvasUpdated(it) }
     }
 
     private fun parseDisplayName(query: String?): String {

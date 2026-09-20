@@ -2,7 +2,6 @@
   import StartScreen from './components/StartScreen.svelte'
   import CanvasView from './components/CanvasView.svelte'
   import { userStore } from './lib/stores/userStore.svelte'
-  import { canvasListStore } from './lib/stores/canvasListStore.svelte'
 
   type Route = { screen: 'start' } | { screen: 'canvas'; id: string; name: string }
 
@@ -14,7 +13,6 @@
 
   function leaveCanvas() {
     route = { screen: 'start' }
-    canvasListStore.refresh()
   }
 </script>
 

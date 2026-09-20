@@ -149,3 +149,12 @@ export type ServerMessage =
   | { type: 'object-created'; obj: CanvasObjectDto }
   | { type: 'object-updated'; objects: CanvasObjectDto[] }
   | { type: 'object-deleted'; ids: string[] }
+
+// --- Lobby (Startbildschirm) Server -> Client, Kanal /ws/canvases ---
+// Backend-Quelle: backend/src/main/kotlin/org/reunion/canvas/ws/protocol/LobbyServerMessage.kt
+
+export type LobbyServerMessage =
+  | { type: 'lobby-initial-state'; canvases: CanvasSummaryDto[] }
+  | { type: 'canvas-added'; canvas: CanvasSummaryDto }
+  | { type: 'canvas-updated'; canvas: CanvasSummaryDto }
+  | { type: 'canvas-removed'; id: string }

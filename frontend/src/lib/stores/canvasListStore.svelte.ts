@@ -1,32 +1,69 @@
-import { createCanvas, deleteCanvas, listCanvases } from '../api/canvasApi'
+import { createCanvas, deleteCanvas } from '../api/canvasApi'
+import { connectLobbySocket, type LobbySocket } from '../api/lobbyWs'
 import type { CanvasSummaryDto } from '../protocol/messages'
 
 class CanvasListStore {
   canvases = $state<CanvasSummaryDto[]>([])
   loading = $state(false)
   error = $state<string | null>(null)
+  private socket: LobbySocket | null = null
 
-  async refresh(): Promise<void> {
+  /** Neueste zuerst. */
+  get sorted(): CanvasSummaryDto[] {
+    return [...this.canvases].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  }
+
+  /**
+   * Verbindet mit der Lobby (Server-Push-Kanal fuer Live-Updates der Canvas-Liste). Die Liste
+   * ist danach ausschliesslich ueber diesen Kanal aktuell - `create()`/`remove()` loesen ihre
+   * eigene Listenaktualisierung ueber die vom Server an alle Lobby-Clients gebroadcastete
+   * `canvas-added`/`canvas-removed`-Nachricht aus, kein lokales Doppel-Update noetig.
+   */
+  connect(): void {
+    if (this.socket) return
     this.loading = true
     this.error = null
-    try {
-      this.canvases = await listCanvases()
-    } catch (e) {
-      this.error = e instanceof Error ? e.message : String(e)
-    } finally {
-      this.loading = false
-    }
+    this.socket = connectLobbySocket()
+    this.socket.onMessage((msg) => {
+      switch (msg.type) {
+        case 'lobby-initial-state':
+          this.canvases = msg.canvases
+          this.loading = false
+          break
+        case 'canvas-added':
+          this.canvases = [...this.canvases.filter((c) => c.id !== msg.canvas.id), msg.canvas]
+          break
+        case 'canvas-updated':
+          this.canvases = this.canvases.map((c) => (c.id === msg.canvas.id ? msg.canvas : c))
+          break
+        case 'canvas-removed':
+          this.canvases = this.canvases.filter((c) => c.id !== msg.id)
+          break
+      }
+    })
+  }
+
+  disconnect(): void {
+    this.socket?.close()
+    this.socket = null
   }
 
   async create(name: string): Promise<CanvasSummaryDto> {
-    const created = await createCanvas(name)
-    this.canvases = [...this.canvases, created]
-    return created
+    try {
+      return await createCanvas(name)
+    } catch (e) {
+      this.error = e instanceof Error ? e.message : String(e)
+      throw e
+    }
   }
 
   async remove(id: string): Promise<void> {
-    await deleteCanvas(id)
-    this.canvases = this.canvases.filter((c) => c.id !== id)
+    try {
+      await deleteCanvas(id)
+    } catch (e) {
+      this.error = e instanceof Error ? e.message : String(e)
+      throw e
+    }
   }
 }
 

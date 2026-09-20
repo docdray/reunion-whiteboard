@@ -13,8 +13,8 @@ export async function createCanvas(page: Page, canvasName: string): Promise<void
 }
 
 export async function openExistingCanvas(page: Page, canvasName: string): Promise<void> {
-  const item = page.locator('li.canvas-list-item').filter({ hasText: canvasName })
-  await item.getByRole('button', { name: 'Öffnen' }).click()
+  const row = page.getByRole('row').filter({ hasText: canvasName })
+  await row.getByRole('button', { name: 'Öffnen' }).click()
   await expect(page.getByRole('application')).toBeVisible()
 }
 
