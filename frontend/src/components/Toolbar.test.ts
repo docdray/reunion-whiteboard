@@ -47,7 +47,7 @@ describe('Toolbar', () => {
     expect(screen.getByText('Doppelpfeil')).toBeInTheDocument()
   })
 
-  it('shows the font dialog only for the text tool in draw mode', () => {
+  it('shows the font dialog only for the text and sticky-note tools in draw mode', () => {
     toolStore.setMode('draw')
     toolStore.setTool('rect')
     const { unmount } = render(Toolbar, { props: { canvasName: 'Test', onLeave: vi.fn() } })
@@ -55,8 +55,20 @@ describe('Toolbar', () => {
     unmount()
 
     toolStore.setTool('text')
+    const { unmount: unmountText } = render(Toolbar, { props: { canvasName: 'Test', onLeave: vi.fn() } })
+    expect(screen.getByRole('group', { name: 'Textformatierung' })).toBeInTheDocument()
+    unmountText()
+
+    toolStore.setTool('sticky-note')
     render(Toolbar, { props: { canvasName: 'Test', onLeave: vi.fn() } })
     expect(screen.getByRole('group', { name: 'Textformatierung' })).toBeInTheDocument()
+  })
+
+  it('does not show the filled toggle for the sticky-note tool', () => {
+    toolStore.setMode('draw')
+    toolStore.setTool('sticky-note')
+    render(Toolbar, { props: { canvasName: 'Test', onLeave: vi.fn() } })
+    expect(screen.queryByText('Gefüllt')).not.toBeInTheDocument()
   })
 
   it('shows the stroke width group with an eraser-specific label for the eraser tool', () => {

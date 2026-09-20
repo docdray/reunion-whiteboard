@@ -23,7 +23,7 @@
         toolStore.tool === 'ellipse' ||
         toolStore.tool === 'arrow'),
   )
-  const showFontDialog = $derived(isDraw && toolStore.tool === 'text')
+  const showFontDialog = $derived(isDraw && (toolStore.tool === 'text' || toolStore.tool === 'sticky-note'))
   const showDoubleHeadedToggle = $derived(isDraw && toolStore.tool === 'arrow')
   const filledToggleLabel = $derived(toolStore.tool === 'arrow' ? 'Pfeilspitze gefüllt' : 'Gefüllt')
 </script>

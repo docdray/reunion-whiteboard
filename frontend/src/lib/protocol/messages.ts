@@ -81,6 +81,23 @@ export interface ArrowShapeData {
   doubleHeaded: boolean
 }
 
+export interface StickyNoteShapeData {
+  type: 'sticky-note'
+  /** Hintergrundfarbe des Zettels (Textfarbe ist bewusst fest, siehe Backend-Kommentar). */
+  color: string
+  x: number
+  y: number
+  width: number
+  height: number
+  content: string
+  fontFamily: string
+  fontSize: number
+  bold: boolean
+  italic: boolean
+  underline: boolean
+  strikethrough: boolean
+}
+
 export type ShapeData =
   | FreehandShapeData
   | LineShapeData
@@ -89,6 +106,7 @@ export type ShapeData =
   | EllipseShapeData
   | TextShapeData
   | ArrowShapeData
+  | StickyNoteShapeData
 
 export type ShapeType = ShapeData['type']
 

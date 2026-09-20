@@ -102,6 +102,50 @@ describe('DrawInteraction', () => {
     expect(onCommit).not.toHaveBeenCalled()
   })
 
+  it('drags a sticky note area and asks for content only at pointer up', () => {
+    const requestTextContent = vi.fn(() => 'Notiz-Inhalt')
+    const { interaction, onPreviewUpdate, onPreviewClear, onCommit } = makeInteraction(requestTextContent)
+
+    interaction.pointerDown('sticky-note', { x: 0, y: 0 })
+    expect(interaction.isDragging).toBe(true)
+    expect(requestTextContent).not.toHaveBeenCalled()
+
+    interaction.pointerMove({ x: 100, y: 80 })
+    expect(onPreviewUpdate).toHaveBeenCalledWith(
+      'sticky-note',
+      expect.objectContaining({ type: 'sticky-note', x: 0, y: 0, width: 100, height: 80, content: '' }),
+    )
+    expect(requestTextContent).not.toHaveBeenCalled()
+
+    interaction.pointerUp({ x: 100, y: 80 })
+    expect(requestTextContent).toHaveBeenCalledWith({ x: 100, y: 80 })
+    expect(onCommit).toHaveBeenCalledWith(
+      'sticky-note',
+      expect.objectContaining({ type: 'sticky-note', x: 0, y: 0, width: 100, height: 80, content: 'Notiz-Inhalt' }),
+    )
+    expect(onPreviewClear).toHaveBeenCalledOnce()
+    expect(interaction.isDragging).toBe(false)
+  })
+
+  it('sticky note falls back to the default size for a click without movement', () => {
+    const { interaction, onCommit } = makeInteraction(() => 'Notiz')
+    interaction.pointerDown('sticky-note', { x: 5, y: 5 })
+    interaction.pointerUp({ x: 5, y: 5 })
+    expect(onCommit).toHaveBeenCalledWith(
+      'sticky-note',
+      expect.objectContaining({ x: 5, y: 5, width: 160, height: 120 }),
+    )
+  })
+
+  it('does not commit a sticky note when the user cancels the prompt', () => {
+    const { interaction, onCommit, onPreviewClear } = makeInteraction(() => null)
+    interaction.pointerDown('sticky-note', { x: 0, y: 0 })
+    interaction.pointerMove({ x: 50, y: 50 })
+    interaction.pointerUp({ x: 50, y: 50 })
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(onPreviewClear).toHaveBeenCalledOnce()
+  })
+
   it('ignores pointerMove/pointerUp when not currently dragging', () => {
     const { interaction, onPreviewUpdate, onCommit } = makeInteraction()
     interaction.pointerMove({ x: 1, y: 1 })

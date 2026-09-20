@@ -1,5 +1,11 @@
 import type { PointDto, ShapeData, ShapeType } from '../protocol/messages'
-import { type DrawSettings, shapeDataFromDrag, textFromClick } from '../geometry/shapeFromDrag'
+import {
+  type DrawSettings,
+  shapeDataFromDrag,
+  stickyNoteAreaFromDrag,
+  stickyNoteFromArea,
+  textFromClick,
+} from '../geometry/shapeFromDrag'
 
 export interface DrawInteractionCallbacks {
   getSettings: () => DrawSettings
@@ -54,9 +60,22 @@ export class DrawInteraction {
   pointerUp(point: PointDto): void {
     if (!this.dragging || !this.start || !this.tool) return
     this.points.push(point)
+    const geometry = { start: this.start, end: point, points: this.points }
+
+    if (this.tool === 'sticky-note') {
+      const area = stickyNoteAreaFromDrag(geometry)
+      const content = this.callbacks.requestTextContent(point)
+      this.callbacks.onPreviewClear()
+      if (content != null && content.trim().length > 0) {
+        this.callbacks.onCommit('sticky-note', stickyNoteFromArea(area, content, this.callbacks.getSettings()))
+      }
+      this.reset()
+      return
+    }
+
     const data = shapeDataFromDrag(
-      this.tool as Exclude<ShapeType, 'text'>,
-      { start: this.start, end: point, points: this.points },
+      this.tool as Exclude<ShapeType, 'text' | 'sticky-note'>,
+      geometry,
       this.callbacks.getSettings(),
     )
     this.callbacks.onCommit(this.tool, data)

@@ -60,6 +60,8 @@ export function shapeBounds(data: ShapeData): Bounds {
         maxX: Math.max(data.x1, data.x2),
         maxY: Math.max(data.y1, data.y2),
       }
+    case 'sticky-note':
+      return { minX: data.x, minY: data.y, maxX: data.x + data.width, maxY: data.y + data.height }
   }
 }
 
@@ -87,6 +89,7 @@ export function translateShapeData(data: ShapeData, dx: number, dy: number): Sha
     case 'circle':
     case 'ellipse':
     case 'text':
+    case 'sticky-note':
       return { ...data, x: data.x + dx, y: data.y + dy }
   }
 }

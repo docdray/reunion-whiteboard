@@ -9,6 +9,7 @@
     { value: 'ellipse', label: 'Ellipse' },
     { value: 'text', label: 'Text' },
     { value: 'arrow', label: 'Pfeil' },
+    { value: 'sticky-note', label: 'Notizzettel' },
     { value: 'eraser', label: 'Radierer' },
   ]
 </script>

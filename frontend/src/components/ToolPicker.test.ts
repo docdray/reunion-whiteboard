@@ -21,9 +21,9 @@ describe('ToolPicker', () => {
     expect(toolStore.tool).toBe('ellipse')
   })
 
-  it('renders all eight tools', () => {
+  it('renders all nine tools', () => {
     render(ToolPicker)
-    for (const label of ['Freihand', 'Linie', 'Rechteck', 'Kreis', 'Ellipse', 'Text', 'Pfeil', 'Radierer']) {
+    for (const label of ['Freihand', 'Linie', 'Rechteck', 'Kreis', 'Ellipse', 'Text', 'Pfeil', 'Notizzettel', 'Radierer']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
   })
@@ -32,6 +32,12 @@ describe('ToolPicker', () => {
     render(ToolPicker)
     await fireEvent.click(screen.getByText('Pfeil'))
     expect(toolStore.tool).toBe('arrow')
+  })
+
+  it('switches to the sticky note tool on click', async () => {
+    render(ToolPicker)
+    await fireEvent.click(screen.getByText('Notizzettel'))
+    expect(toolStore.tool).toBe('sticky-note')
   })
 
   it('switches to the eraser tool on click', async () => {

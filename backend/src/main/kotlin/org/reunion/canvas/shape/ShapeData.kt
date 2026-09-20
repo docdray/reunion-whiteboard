@@ -14,6 +14,7 @@ data class PointDto(val x: Double, val y: Double)
     JsonSubTypes.Type(EllipseShapeData::class, name = "ellipse"),
     JsonSubTypes.Type(TextShapeData::class, name = "text"),
     JsonSubTypes.Type(ArrowShapeData::class, name = "arrow"),
+    JsonSubTypes.Type(StickyNoteShapeData::class, name = "sticky-note"),
 )
 sealed interface ShapeData {
     val color: String
@@ -87,6 +88,27 @@ data class TextShapeData(
     val strikethrough: Boolean,
 ) : ShapeData
 
+/**
+ * Notizzettel (Sticky Note): Rechteck mit Hintergrundfarbe + Text, wie ein Post-it.
+ * `color` wird hier als Hintergrundfarbe interpretiert (kein separates `backgroundColor`-Feld,
+ * da das Interface ohnehin `color` verlangt). Die Textfarbe ist bewusst FEST (siehe Frontend-
+ * Rendering) statt konfigurierbar, damit der Text auf jeder Hintergrundfarbe lesbar bleibt.
+ */
+data class StickyNoteShapeData(
+    override val color: String,
+    val x: Double,
+    val y: Double,
+    val width: Double,
+    val height: Double,
+    val content: String,
+    val fontFamily: String,
+    val fontSize: Double,
+    val bold: Boolean,
+    val italic: Boolean,
+    val underline: Boolean,
+    val strikethrough: Boolean,
+) : ShapeData
+
 /** Discriminator value used both as the JSON "type" and as CanvasObjectEntity.type. */
 val ShapeData.typeName: String
     get() = when (this) {
@@ -97,4 +119,5 @@ val ShapeData.typeName: String
         is EllipseShapeData -> "ellipse"
         is TextShapeData -> "text"
         is ArrowShapeData -> "arrow"
+        is StickyNoteShapeData -> "sticky-note"
     }

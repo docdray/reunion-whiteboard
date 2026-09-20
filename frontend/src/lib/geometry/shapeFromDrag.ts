@@ -8,6 +8,7 @@ import type {
   RectShapeData,
   ShapeData,
   ShapeType,
+  StickyNoteShapeData,
   TextShapeData,
 } from '../protocol/messages'
 
@@ -129,7 +130,48 @@ export function textFromClick(point: PointDto, content: string, settings: DrawSe
   }
 }
 
-/** Dispatch für alle Drag-basierten Werkzeuge (alles außer 'text', das keinen Drag braucht). */
+export interface RectArea {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+const STICKY_NOTE_DEFAULT_WIDTH = 160
+const STICKY_NOTE_DEFAULT_HEIGHT = 120
+/** Unterhalb dieser Ziehdistanz (Weltkoordinaten) gilt die Geste als Klick statt als Ziehen. */
+const STICKY_NOTE_CLICK_THRESHOLD = 4
+
+/** Rechteck-Fläche aus dem Drag wie bei `rect`; bei einem reinen Klick (kaum Bewegung) eine feste Standardgröße, verankert am Klickpunkt als obere linke Ecke. */
+export function stickyNoteAreaFromDrag(geometry: DragGeometry): RectArea {
+  if (distance(geometry.start, geometry.end) < STICKY_NOTE_CLICK_THRESHOLD) {
+    return { x: geometry.start.x, y: geometry.start.y, width: STICKY_NOTE_DEFAULT_WIDTH, height: STICKY_NOTE_DEFAULT_HEIGHT }
+  }
+  const x = Math.min(geometry.start.x, geometry.end.x)
+  const y = Math.min(geometry.start.y, geometry.end.y)
+  return { x, y, width: Math.abs(geometry.end.x - geometry.start.x), height: Math.abs(geometry.end.y - geometry.start.y) }
+}
+
+/** Baut die finalen ShapeData erst NACH der Textabfrage (window.prompt) auf, analog zu textFromClick. */
+export function stickyNoteFromArea(area: RectArea, content: string, settings: DrawSettings): StickyNoteShapeData {
+  return {
+    type: 'sticky-note',
+    color: settings.color,
+    x: area.x,
+    y: area.y,
+    width: area.width,
+    height: area.height,
+    content,
+    fontFamily: settings.fontFamily,
+    fontSize: settings.fontSize,
+    bold: settings.bold,
+    italic: settings.italic,
+    underline: settings.underline,
+    strikethrough: settings.strikethrough,
+  }
+}
+
+/** Dispatch für alle Drag-basierten Werkzeuge (alles außer 'text', das keinen Drag braucht). 'sticky-note' liefert hier nur eine Live-Vorschau mit leerem Inhalt — der echte Inhalt kommt erst bei pointerUp per Prompt (siehe drawMode.ts). */
 export function shapeDataFromDrag(
   tool: Exclude<ShapeType, 'text'>,
   geometry: DragGeometry,
@@ -148,5 +190,7 @@ export function shapeDataFromDrag(
       return ellipseFromDrag(geometry, settings)
     case 'arrow':
       return arrowFromDrag(geometry, settings)
+    case 'sticky-note':
+      return stickyNoteFromArea(stickyNoteAreaFromDrag(geometry), '', settings)
   }
 }

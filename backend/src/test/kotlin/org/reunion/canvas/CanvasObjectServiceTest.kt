@@ -18,6 +18,7 @@ import org.reunion.canvas.shape.LineShapeData
 import org.reunion.canvas.shape.PointDto
 import org.reunion.canvas.shape.RectShapeData
 import org.reunion.canvas.shape.ShapeData
+import org.reunion.canvas.shape.StickyNoteShapeData
 import org.reunion.canvas.shape.TextShapeData
 import java.time.Instant
 import java.util.UUID
@@ -57,6 +58,11 @@ class CanvasObjectServiceTest {
             ),
             ArrowShapeData(color = "#123456", strokeWidth = 2.0, filled = true, x1 = 0.0, y1 = 0.0, x2 = 40.0, y2 = 20.0, doubleHeaded = false),
             ArrowShapeData(color = "#654321", strokeWidth = 3.0, filled = false, x1 = 5.0, y1 = 5.0, x2 = -10.0, y2 = 15.0, doubleHeaded = true),
+            StickyNoteShapeData(
+                color = "#fff59d", x = 4.0, y = 4.0, width = 160.0, height = 120.0, content = "Notiz",
+                fontFamily = "Arial", fontSize = 14.0,
+                bold = false, italic = true, underline = false, strikethrough = true,
+            ),
         )
     }
 

@@ -7,6 +7,7 @@ import type {
   FreehandShapeData,
   LineShapeData,
   RectShapeData,
+  StickyNoteShapeData,
   TextShapeData,
 } from '../protocol/messages'
 
@@ -89,6 +90,25 @@ describe('shapeBounds', () => {
     }
     expect(shapeBounds(data)).toEqual({ minX: 2, minY: 10, maxX: 10, maxY: 30 })
   })
+
+  it('berechnet Bounds für sticky-note wie bei rect', () => {
+    const data: StickyNoteShapeData = {
+      type: 'sticky-note',
+      color: '#fff59d',
+      x: 5,
+      y: 5,
+      width: 160,
+      height: 120,
+      content: 'Notiz',
+      fontFamily: 'sans-serif',
+      fontSize: 14,
+      bold: false,
+      italic: false,
+      underline: false,
+      strikethrough: false,
+    }
+    expect(shapeBounds(data)).toEqual({ minX: 5, minY: 5, maxX: 165, maxY: 125 })
+  })
 })
 
 describe('boundsIntersect', () => {
@@ -167,5 +187,25 @@ describe('translateShapeData', () => {
     const rect: RectShapeData = { type: 'rect', color: '#f00', strokeWidth: 2, filled: true, x: 1, y: 1, width: 9, height: 9 }
     const moved = translateShapeData(rect, 4, 4) as RectShapeData
     expect(moved).toMatchObject({ x: 5, y: 5, width: 9, height: 9, filled: true, color: '#f00' })
+  })
+
+  it('verschiebt x/y bei sticky-note, Inhalt/Größe bleiben unverändert', () => {
+    const note: StickyNoteShapeData = {
+      type: 'sticky-note',
+      color: '#fff59d',
+      x: 1,
+      y: 1,
+      width: 160,
+      height: 120,
+      content: 'Notiz',
+      fontFamily: 'sans-serif',
+      fontSize: 14,
+      bold: false,
+      italic: false,
+      underline: false,
+      strikethrough: false,
+    }
+    const moved = translateShapeData(note, 4, 4) as StickyNoteShapeData
+    expect(moved).toMatchObject({ x: 5, y: 5, width: 160, height: 120, content: 'Notiz' })
   })
 })

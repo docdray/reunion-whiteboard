@@ -5,9 +5,13 @@ import { viewportStore } from '../stores/viewportStore.svelte'
 import { selectionStore } from '../stores/selectionStore.svelte'
 import { translateShapeData } from '../geometry/shapeBounds'
 import { arrowHeadWings } from '../geometry/arrowHead'
-import type { ArrowShapeData, ShapeData } from '../protocol/messages'
+import type { ArrowShapeData, ShapeData, StickyNoteShapeData } from '../protocol/messages'
 
 type VisualNode = Konva.Shape | Konva.Group
+
+/** Feste Textfarbe für Notizzettel (siehe Backend-Kommentar zu StickyNoteShapeData) — bleibt auf jeder Hintergrundfarbe lesbar. */
+const STICKY_NOTE_TEXT_COLOR = '#1a1a1a'
+const STICKY_NOTE_PADDING = 10
 
 function applySelectionStyle(node: VisualNode, selected: boolean): void {
   node.setAttrs({
@@ -90,6 +94,10 @@ function configFor(data: ShapeData): Record<string, unknown> {
         textDecoration,
       }
     }
+    case 'sticky-note':
+      // Wird nie tatsächlich genutzt (Notizzettel ist immer eine Konva.Group aus Rect+Text,
+      // siehe createStickyNoteGroup) — nur für die Exhaustivität der Switch nötig.
+      return {}
   }
 }
 
@@ -163,6 +171,62 @@ function updateOpenArrowGroup(group: Konva.Group, data: ArrowShapeData): void {
   }
 }
 
+function isStickyNote(data: ShapeData): data is StickyNoteShapeData {
+  return data.type === 'sticky-note'
+}
+
+function stickyNoteTextConfig(data: StickyNoteShapeData): Record<string, unknown> {
+  const textDecoration = [data.underline ? 'underline' : '', data.strikethrough ? 'line-through' : '']
+    .filter(Boolean)
+    .join(' ')
+  const fontStyle = [data.italic ? 'italic' : '', data.bold ? 'bold' : ''].filter(Boolean).join(' ') || 'normal'
+  return {
+    x: data.x + STICKY_NOTE_PADDING,
+    y: data.y + STICKY_NOTE_PADDING,
+    width: Math.max(data.width - STICKY_NOTE_PADDING * 2, 0),
+    height: Math.max(data.height - STICKY_NOTE_PADDING * 2, 0),
+    text: data.content,
+    fontFamily: data.fontFamily,
+    fontSize: data.fontSize,
+    fill: STICKY_NOTE_TEXT_COLOR,
+    fontStyle,
+    textDecoration,
+    wrap: 'word',
+  }
+}
+
+function createStickyNoteGroup(data: StickyNoteShapeData): Konva.Group {
+  const group = new Konva.Group()
+  const background = new Konva.Rect({
+    x: data.x,
+    y: data.y,
+    width: data.width,
+    height: data.height,
+    fill: data.color,
+    cornerRadius: 4,
+    shadowColor: 'black',
+    shadowBlur: 6,
+    shadowOpacity: 0.25,
+    shadowOffset: { x: 2, y: 2 },
+    name: 'background',
+  })
+  group.add(background)
+  const label = new Konva.Text({ ...stickyNoteTextConfig(data), name: 'label' })
+  group.add(label)
+  return group
+}
+
+function updateStickyNoteGroup(group: Konva.Group, data: StickyNoteShapeData): void {
+  const background = group.findOne<Konva.Rect>('.background')
+  if (background) {
+    background.setAttrs({ x: data.x, y: data.y, width: data.width, height: data.height, fill: data.color })
+  }
+  const label = group.findOne<Konva.Text>('.label')
+  if (label) {
+    label.setAttrs(stickyNoteTextConfig(data))
+  }
+}
+
 function createNode(data: ShapeData, config: Record<string, unknown>): VisualNode {
   switch (data.type) {
     case 'freehand':
@@ -178,10 +242,12 @@ function createNode(data: ShapeData, config: Record<string, unknown>): VisualNod
       return isOpenArrow(data) ? createOpenArrowGroup(data) : new Konva.Arrow(config)
     case 'text':
       return new Konva.Text(config)
+    case 'sticky-note':
+      return createStickyNoteGroup(data)
   }
 }
 
-/** Aktualisiert einen bestehenden Node in-place; baut bei Bedarf (offener Pfeil <-> anderer Typ) neu. */
+/** Aktualisiert einen bestehenden Node in-place; baut bei Bedarf (Gruppe <-> anderer Typ) neu. */
 function syncNode(
   layer: Konva.Layer,
   map: Map<string, VisualNode>,
@@ -190,12 +256,14 @@ function syncNode(
   applyStyle: (node: VisualNode) => void,
 ): void {
   const existing = map.get(key)
-  const wantsGroup = isOpenArrow(data)
+  const wantsGroup = isOpenArrow(data) || isStickyNote(data)
   const existingIsGroup = existing instanceof Konva.Group
 
   if (existing && wantsGroup === existingIsGroup) {
-    if (wantsGroup) {
-      updateOpenArrowGroup(existing as Konva.Group, data as ArrowShapeData)
+    if (isOpenArrow(data)) {
+      updateOpenArrowGroup(existing as Konva.Group, data)
+    } else if (isStickyNote(data)) {
+      updateStickyNoteGroup(existing as Konva.Group, data)
     } else {
       existing.setAttrs(configFor(data))
     }
@@ -206,7 +274,11 @@ function syncNode(
   if (existing) {
     existing.destroy()
   }
-  const created = wantsGroup ? createOpenArrowGroup(data as ArrowShapeData) : createNode(data, configFor(data))
+  const created = isOpenArrow(data)
+    ? createOpenArrowGroup(data)
+    : isStickyNote(data)
+      ? createStickyNoteGroup(data)
+      : createNode(data, configFor(data))
   map.set(key, created)
   layer.add(created)
   applyStyle(created)

@@ -8,6 +8,8 @@ import {
   lineFromDrag,
   rectFromDrag,
   shapeDataFromDrag,
+  stickyNoteAreaFromDrag,
+  stickyNoteFromArea,
   textFromClick,
 } from './shapeFromDrag'
 
@@ -102,6 +104,7 @@ describe('shapeFromDrag', () => {
     expect(shapeDataFromDrag('line', geometry, settings).type).toBe('line')
     expect(shapeDataFromDrag('freehand', geometry, settings).type).toBe('freehand')
     expect(shapeDataFromDrag('arrow', geometry, settings).type).toBe('arrow')
+    expect(shapeDataFromDrag('sticky-note', geometry, settings).type).toBe('sticky-note')
   })
 
   it('builds an arrow from start to end, carrying filled and doubleHeaded from settings', () => {
@@ -117,6 +120,35 @@ describe('shapeFromDrag', () => {
       y2: 4,
       filled: false,
       doubleHeaded: true,
+    })
+  })
+
+  it('sticky note area uses the dragged rect when the drag exceeds the click threshold', () => {
+    const area = stickyNoteAreaFromDrag({ start: { x: 10, y: 20 }, end: { x: 0, y: 0 } })
+    expect(area).toEqual({ x: 0, y: 0, width: 10, height: 20 })
+  })
+
+  it('sticky note area falls back to a fixed default size for a click without movement', () => {
+    const area = stickyNoteAreaFromDrag({ start: { x: 5, y: 5 }, end: { x: 6, y: 5 } })
+    expect(area).toEqual({ x: 5, y: 5, width: 160, height: 120 })
+  })
+
+  it('builds a sticky note from an area, content and settings', () => {
+    const shape = stickyNoteFromArea({ x: 1, y: 2, width: 160, height: 120 }, 'Notiz', settings)
+    expect(shape).toMatchObject({
+      type: 'sticky-note',
+      color: settings.color,
+      x: 1,
+      y: 2,
+      width: 160,
+      height: 120,
+      content: 'Notiz',
+      fontFamily: settings.fontFamily,
+      fontSize: settings.fontSize,
+      bold: settings.bold,
+      italic: settings.italic,
+      underline: settings.underline,
+      strikethrough: settings.strikethrough,
     })
   })
 })
