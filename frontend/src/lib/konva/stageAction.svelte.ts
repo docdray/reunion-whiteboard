@@ -340,7 +340,6 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
   function resize(): void {
     stage.width(node.clientWidth)
     stage.height(node.clientHeight)
-    gridLayer.batchDraw()
   }
 
   const resizeObserver = new ResizeObserver(resize)

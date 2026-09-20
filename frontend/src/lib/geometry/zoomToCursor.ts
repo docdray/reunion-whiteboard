@@ -3,7 +3,7 @@ import type { Viewport } from '../stores/viewportStore.svelte'
 export const MIN_SCALE = 0.1
 export const MAX_SCALE = 10
 
-function clamp(value: number, min: number, max: number): number {
+export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 

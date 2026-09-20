@@ -1,13 +1,9 @@
 import type { Bounds } from './shapeBounds'
 import type { Viewport } from '../stores/viewportStore.svelte'
-import { MIN_SCALE, MAX_SCALE } from './zoomToCursor'
+import { MIN_SCALE, MAX_SCALE, clamp } from './zoomToCursor'
 
 /** Anteil der Stage-Fläche, den die Bounding-Box maximal einnehmen soll (Rest = Rand). */
 const FIT_FACTOR = 0.85
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
-}
 
 /**
  * Berechnet den Viewport, der `bounds` zentriert und vollständig sichtbar einpasst.
