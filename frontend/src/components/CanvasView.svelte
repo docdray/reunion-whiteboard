@@ -232,19 +232,24 @@
   onpointerdown={handlePointerDown}
   onpointermove={handlePointerMove}
   onpointerup={handlePointerUp}
->
-  {#each remoteCursors as user (user.userId)}
-    <div
-      class="remote-cursor"
-      style={`left:${(user.cursorX ?? 0) * viewportStore.scale + viewportStore.panX}px; top:${(user.cursorY ?? 0) * viewportStore.scale + viewportStore.panY}px; --cursor-color:${user.color}`}
-    >
-      <span class="remote-cursor-label">{user.displayName}</span>
-    </div>
-  {/each}
-  {#if selectionStore.marqueeRect}
-    <div class="marquee" style={marqueeStyle(selectionStore.marqueeRect)}></div>
-  {/if}
-</div>
+></div>
+
+<!--
+  Bewusst AUSSERHALB von .canvas-container: Konva.Stage übernimmt beim Mounten
+  den Container-Inhalt (`container.innerHTML = ''`), was hier gerenderte
+  Svelte-Kindelemente (Remote-Cursor, Marquee) unwiderruflich zerstören würde.
+-->
+{#each remoteCursors as user (user.userId)}
+  <div
+    class="remote-cursor"
+    style={`left:${(user.cursorX ?? 0) * viewportStore.scale + viewportStore.panX}px; top:${(user.cursorY ?? 0) * viewportStore.scale + viewportStore.panY}px; --cursor-color:${user.color}`}
+  >
+    <span class="remote-cursor-label">{user.displayName}</span>
+  </div>
+{/each}
+{#if selectionStore.marqueeRect}
+  <div class="marquee" style={marqueeStyle(selectionStore.marqueeRect)}></div>
+{/if}
 
 <Toolbar {canvasName} {onLeave} />
 
