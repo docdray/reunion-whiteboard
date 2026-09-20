@@ -3,9 +3,13 @@
   import { connectCanvasSocket, type CanvasSocket } from '../lib/api/ws'
   import { canvasStore } from '../lib/stores/canvasStore.svelte'
   import { presenceStore } from '../lib/stores/presenceStore.svelte'
+  import { previewStore } from '../lib/stores/previewStore.svelte'
   import { viewportStore } from '../lib/stores/viewportStore.svelte'
+  import { toolStore } from '../lib/stores/toolStore.svelte'
   import { konvaStage } from '../lib/konva/stageAction.svelte'
   import { zoomToCursor, wheelScaleFactor } from '../lib/geometry/zoomToCursor'
+  import { DrawInteraction } from '../lib/interaction/drawMode'
+  import DrawToolPicker from './DrawToolPicker.svelte'
 
   interface Props {
     canvasId: string
@@ -21,8 +25,10 @@
   let isPanning = false
   let lastPointer = { x: 0, y: 0 }
   let lastCursorSendAt = 0
+  let lastDrawPreviewSendAt = 0
 
   const CURSOR_SEND_INTERVAL_MS = 50
+  const DRAW_PREVIEW_SEND_INTERVAL_MS = 50
 
   function screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
     return {
@@ -31,9 +37,27 @@
     }
   }
 
+  const drawInteraction = new DrawInteraction({
+    getSettings: () => toolStore.drawSettings,
+    onPreviewUpdate: (shapeType, data) => {
+      previewStore.setOwn({ shapeType, data })
+      const now = Date.now()
+      if (now - lastDrawPreviewSendAt >= DRAW_PREVIEW_SEND_INTERVAL_MS) {
+        lastDrawPreviewSendAt = now
+        socket?.send({ type: 'draw-preview', shapeType, data })
+      }
+    },
+    onPreviewClear: () => previewStore.clearOwn(),
+    onCommit: (shapeType, data) => {
+      socket?.send({ type: 'object-create', shapeType, data })
+    },
+    requestTextContent: () => window.prompt('Text eingeben:'),
+  })
+
   onMount(() => {
     canvasStore.reset()
     presenceStore.reset()
+    previewStore.reset()
     viewportStore.setViewport({ panX: 0, panY: 0, scale: 1 })
 
     socket = connectCanvasSocket(canvasId, displayName)
@@ -48,6 +72,7 @@
           break
         case 'user-left':
           presenceStore.remove(msg.userId)
+          previewStore.removeOther(msg.userId)
           break
         case 'presence-update':
           presenceStore.updateCursor(msg.userId, msg.x, msg.y)
@@ -62,7 +87,7 @@
           canvasStore.remove(msg.ids)
           break
         case 'draw-preview-relay':
-          // handled once Zeichnen-Modus (Milestone 6) exists
+          previewStore.upsertOther(msg.userId, { shapeType: msg.shapeType, data: msg.data })
           break
       }
     })
@@ -72,6 +97,7 @@
     socket?.close()
     canvasStore.reset()
     presenceStore.reset()
+    previewStore.reset()
   })
 
   function handleWheel(event: WheelEvent): void {
@@ -87,9 +113,17 @@
   }
 
   function handlePointerDown(event: PointerEvent): void {
+    containerEl.setPointerCapture(event.pointerId)
+
+    if (toolStore.mode === 'draw') {
+      const rect = containerEl.getBoundingClientRect()
+      const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
+      drawInteraction.pointerDown(toolStore.tool, world)
+      return
+    }
+
     isPanning = true
     lastPointer = { x: event.clientX, y: event.clientY }
-    containerEl.setPointerCapture(event.pointerId)
   }
 
   function handlePointerMove(event: PointerEvent): void {
@@ -102,6 +136,11 @@
       socket?.send({ type: 'cursor-move', x: world.x, y: world.y })
     }
 
+    if (toolStore.mode === 'draw' && drawInteraction.isDragging) {
+      drawInteraction.pointerMove(world)
+      return
+    }
+
     if (isPanning) {
       const dx = event.clientX - lastPointer.x
       const dy = event.clientY - lastPointer.y
@@ -111,8 +150,16 @@
   }
 
   function handlePointerUp(event: PointerEvent): void {
-    isPanning = false
     containerEl.releasePointerCapture(event.pointerId)
+
+    if (toolStore.mode === 'draw' && drawInteraction.isDragging) {
+      const rect = containerEl.getBoundingClientRect()
+      const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
+      drawInteraction.pointerUp(world)
+      return
+    }
+
+    isPanning = false
   }
 
   const remoteCursors = $derived(
@@ -140,6 +187,7 @@
   {/each}
 </div>
 
+<DrawToolPicker />
 <button type="button" class="leave-button" onclick={onLeave}>Canvas "{canvasName}" verlassen</button>
 
 <style>

@@ -1,10 +1,10 @@
 import Konva from 'konva'
 import { canvasStore } from '../stores/canvasStore.svelte'
+import { previewStore } from '../stores/previewStore.svelte'
 import { viewportStore } from '../stores/viewportStore.svelte'
-import type { CanvasObjectDto } from '../protocol/messages'
+import type { ShapeData } from '../protocol/messages'
 
-function configFor(obj: CanvasObjectDto): Record<string, unknown> {
-  const data = obj.data
+function configFor(data: ShapeData): Record<string, unknown> {
   switch (data.type) {
     case 'freehand':
       return {
@@ -68,9 +68,9 @@ function configFor(obj: CanvasObjectDto): Record<string, unknown> {
   }
 }
 
-function createNode(obj: CanvasObjectDto): Konva.Shape {
-  const config = configFor(obj)
-  switch (obj.data.type) {
+function createNode(data: ShapeData): Konva.Shape {
+  const config = configFor(data)
+  switch (data.type) {
     case 'freehand':
     case 'line':
       return new Konva.Line(config)
@@ -95,6 +95,12 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
   stage.add(layer)
 
   const nodesById = new Map<string, Konva.Shape>()
+  const previewNodesByKey = new Map<string, Konva.Shape>()
+
+  function applyPreviewStyle(shape: Konva.Shape): void {
+    shape.opacity(0.6)
+    shape.dash([6, 4])
+  }
 
   function resize(): void {
     stage.width(node.clientWidth)
@@ -119,9 +125,9 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
         seen.add(obj.id)
         const existing = nodesById.get(obj.id)
         if (existing) {
-          existing.setAttrs(configFor(obj))
+          existing.setAttrs(configFor(obj.data))
         } else {
-          const created = createNode(obj)
+          const created = createNode(obj.data)
           nodesById.set(obj.id, created)
           layer.add(created)
         }
@@ -130,6 +136,37 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
         if (!seen.has(id)) {
           konvaNode.destroy()
           nodesById.delete(id)
+        }
+      }
+      layer.batchDraw()
+    })
+
+    $effect(() => {
+      const entries: Array<[string, ShapeData]> = []
+      if (previewStore.own) entries.push(['own', previewStore.own.data])
+      for (const [userId, entry] of Object.entries(previewStore.others)) {
+        entries.push([userId, entry.data])
+      }
+
+      const seen = new Set<string>()
+      for (const [key, data] of entries) {
+        seen.add(key)
+        const existing = previewNodesByKey.get(key)
+        if (existing) {
+          existing.setAttrs(configFor(data))
+          existing.moveToTop()
+        } else {
+          const created = createNode(data)
+          applyPreviewStyle(created)
+          previewNodesByKey.set(key, created)
+          layer.add(created)
+          created.moveToTop()
+        }
+      }
+      for (const [key, konvaNode] of previewNodesByKey) {
+        if (!seen.has(key)) {
+          konvaNode.destroy()
+          previewNodesByKey.delete(key)
         }
       }
       layer.batchDraw()
