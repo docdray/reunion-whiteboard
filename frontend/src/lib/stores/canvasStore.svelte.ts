@@ -26,6 +26,15 @@ class CanvasStore {
     for (const obj of objs) this.upsert(obj)
   }
 
+  /** Aktualisiert nur die Shape-Daten eines bestehenden Objekts (z.B. für optimistische Verschiebungen). */
+  updateData(id: string, data: CanvasObjectDto['data']): void {
+    const index = this.objects.findIndex((o) => o.id === id)
+    if (index === -1) return
+    const next = [...this.objects]
+    next[index] = { ...next[index], data }
+    this.objects = next
+  }
+
   remove(ids: string[]): void {
     const idSet = new Set(ids)
     this.objects = this.objects.filter((o) => !idSet.has(o.id))

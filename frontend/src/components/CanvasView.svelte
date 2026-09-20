@@ -72,7 +72,10 @@
     select: (ids, additive) => selectionStore.select(ids, additive),
     onMovePreview: (dx, dy) => selectionStore.setMoveDelta(dx, dy),
     onMovePreviewClear: () => selectionStore.clearMoveDelta(),
-    onMoveCommit: (updates) => socket?.send({ type: 'object-update', objects: updates }),
+    onMoveCommit: (updates) => {
+      for (const update of updates) canvasStore.updateData(update.id, update.data)
+      socket?.send({ type: 'object-update', objects: updates })
+    },
     onMarqueeChange: (rect) => selectionStore.setMarqueeRect(rect),
   })
 
