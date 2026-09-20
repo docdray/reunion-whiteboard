@@ -69,6 +69,18 @@ export interface TextShapeData {
   strikethrough: boolean
 }
 
+export interface ArrowShapeData {
+  type: 'arrow'
+  color: string
+  strokeWidth: number
+  filled: boolean
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  doubleHeaded: boolean
+}
+
 export type ShapeData =
   | FreehandShapeData
   | LineShapeData
@@ -76,6 +88,7 @@ export type ShapeData =
   | CircleShapeData
   | EllipseShapeData
   | TextShapeData
+  | ArrowShapeData
 
 export type ShapeType = ShapeData['type']
 

@@ -13,6 +13,7 @@ const settings: DrawSettings = {
   italic: false,
   underline: false,
   strikethrough: false,
+  doubleHeaded: false,
 }
 
 function makeInteraction(requestTextContent: (point: PointDto) => string | null = () => 'Hallo') {
@@ -42,6 +43,16 @@ describe('DrawInteraction', () => {
     expect(onCommit).toHaveBeenCalledWith('rect', expect.objectContaining({ type: 'rect', width: 20, height: 5 }))
     expect(onPreviewClear).toHaveBeenCalledOnce()
     expect(interaction.isDragging).toBe(false)
+  })
+
+  it('previews during drag and commits an arrow on pointer up', () => {
+    const { interaction, onPreviewUpdate, onCommit } = makeInteraction()
+    interaction.pointerDown('arrow', { x: 0, y: 0 })
+    interaction.pointerMove({ x: 10, y: 10 })
+    expect(onPreviewUpdate).toHaveBeenCalledWith('arrow', expect.objectContaining({ type: 'arrow', x2: 10, y2: 10 }))
+
+    interaction.pointerUp({ x: 20, y: 5 })
+    expect(onCommit).toHaveBeenCalledWith('arrow', expect.objectContaining({ type: 'arrow', x1: 0, y1: 0, x2: 20, y2: 5 }))
   })
 
   it('accumulates every point for freehand drawing', () => {

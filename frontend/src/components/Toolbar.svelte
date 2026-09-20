@@ -6,6 +6,7 @@
   import StrokeWidthSelector from './StrokeWidthSelector.svelte'
   import FilledToggle from './FilledToggle.svelte'
   import FontDialog from './FontDialog.svelte'
+  import DoubleHeadedToggle from './DoubleHeadedToggle.svelte'
 
   interface Props {
     canvasName: string
@@ -16,9 +17,15 @@
 
   const isDraw = $derived(toolStore.mode === 'draw')
   const showFilledToggle = $derived(
-    isDraw && (toolStore.tool === 'rect' || toolStore.tool === 'circle' || toolStore.tool === 'ellipse'),
+    isDraw &&
+      (toolStore.tool === 'rect' ||
+        toolStore.tool === 'circle' ||
+        toolStore.tool === 'ellipse' ||
+        toolStore.tool === 'arrow'),
   )
   const showFontDialog = $derived(isDraw && toolStore.tool === 'text')
+  const showDoubleHeadedToggle = $derived(isDraw && toolStore.tool === 'arrow')
+  const filledToggleLabel = $derived(toolStore.tool === 'arrow' ? 'Pfeilspitze gefüllt' : 'Gefüllt')
 </script>
 
 <div class="toolbar">
@@ -31,7 +38,10 @@
     <ColorPicker />
     <StrokeWidthSelector />
     {#if showFilledToggle}
-      <FilledToggle />
+      <FilledToggle label={filledToggleLabel} />
+    {/if}
+    {#if showDoubleHeadedToggle}
+      <DoubleHeadedToggle />
     {/if}
     {#if showFontDialog}
       <FontDialog />

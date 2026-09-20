@@ -61,6 +61,16 @@ function configFor(data: ShapeData): Record<string, unknown> {
         strokeWidth: data.strokeWidth,
         fill: data.filled ? data.color : null,
       }
+    case 'arrow':
+      return {
+        points: [data.x1, data.y1, data.x2, data.y2],
+        stroke: data.color,
+        strokeWidth: data.strokeWidth,
+        fill: data.color,
+        fillEnabled: data.filled,
+        pointerAtBeginning: data.doubleHeaded,
+        pointerAtEnding: true,
+      }
     case 'text': {
       const textDecoration = [data.underline ? 'underline' : '', data.strikethrough ? 'line-through' : '']
         .filter(Boolean)
@@ -91,6 +101,8 @@ function createNode(data: ShapeData, config: Record<string, unknown>): Konva.Sha
       return new Konva.Circle(config)
     case 'ellipse':
       return new Konva.Ellipse(config)
+    case 'arrow':
+      return new Konva.Arrow(config)
     case 'text':
       return new Konva.Text(config)
   }

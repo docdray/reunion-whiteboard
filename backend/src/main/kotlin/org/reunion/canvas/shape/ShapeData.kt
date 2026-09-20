@@ -13,6 +13,7 @@ data class PointDto(val x: Double, val y: Double)
     JsonSubTypes.Type(CircleShapeData::class, name = "circle"),
     JsonSubTypes.Type(EllipseShapeData::class, name = "ellipse"),
     JsonSubTypes.Type(TextShapeData::class, name = "text"),
+    JsonSubTypes.Type(ArrowShapeData::class, name = "arrow"),
 )
 sealed interface ShapeData {
     val color: String
@@ -62,6 +63,17 @@ data class EllipseShapeData(
     val radiusY: Double,
 ) : ShapeData
 
+data class ArrowShapeData(
+    override val color: String,
+    val strokeWidth: Double,
+    val filled: Boolean,
+    val x1: Double,
+    val y1: Double,
+    val x2: Double,
+    val y2: Double,
+    val doubleHeaded: Boolean,
+) : ShapeData
+
 data class TextShapeData(
     override val color: String,
     val x: Double,
@@ -84,4 +96,5 @@ val ShapeData.typeName: String
         is CircleShapeData -> "circle"
         is EllipseShapeData -> "ellipse"
         is TextShapeData -> "text"
+        is ArrowShapeData -> "arrow"
     }

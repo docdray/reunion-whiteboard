@@ -1,5 +1,7 @@
 <script lang="ts">
   import { toolStore } from '../lib/stores/toolStore.svelte'
+
+  let { label = 'Gefüllt' }: { label?: string } = $props()
 </script>
 
 <label class="filled-toggle">
@@ -8,7 +10,7 @@
     checked={toolStore.filled}
     onchange={(e) => toolStore.setFilled((e.currentTarget as HTMLInputElement).checked)}
   />
-  Gefüllt
+  {label}
 </label>
 
 <style>

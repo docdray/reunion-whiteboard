@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  arrowFromDrag,
   circleFromDrag,
   type DrawSettings,
   ellipseFromDrag,
@@ -20,6 +21,7 @@ const settings: DrawSettings = {
   italic: false,
   underline: true,
   strikethrough: false,
+  doubleHeaded: false,
 }
 
 describe('shapeFromDrag', () => {
@@ -99,5 +101,22 @@ describe('shapeFromDrag', () => {
     expect(shapeDataFromDrag('ellipse', geometry, settings).type).toBe('ellipse')
     expect(shapeDataFromDrag('line', geometry, settings).type).toBe('line')
     expect(shapeDataFromDrag('freehand', geometry, settings).type).toBe('freehand')
+    expect(shapeDataFromDrag('arrow', geometry, settings).type).toBe('arrow')
+  })
+
+  it('builds an arrow from start to end, carrying filled and doubleHeaded from settings', () => {
+    const shape = arrowFromDrag(
+      { start: { x: 1, y: 2 }, end: { x: 3, y: 4 } },
+      { ...settings, filled: false, doubleHeaded: true },
+    )
+    expect(shape).toMatchObject({
+      type: 'arrow',
+      x1: 1,
+      y1: 2,
+      x2: 3,
+      y2: 4,
+      filled: false,
+      doubleHeaded: true,
+    })
   })
 })

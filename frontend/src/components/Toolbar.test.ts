@@ -34,6 +34,19 @@ describe('Toolbar', () => {
     expect(screen.getByText('Gefüllt')).toBeInTheDocument()
   })
 
+  it('shows the filled toggle with an arrow-specific label and the double-headed toggle only for arrow', () => {
+    toolStore.setMode('draw')
+    toolStore.setTool('rect')
+    const { unmount } = render(Toolbar, { props: { canvasName: 'Test', onLeave: vi.fn() } })
+    expect(screen.queryByText('Doppelpfeil')).not.toBeInTheDocument()
+    unmount()
+
+    toolStore.setTool('arrow')
+    render(Toolbar, { props: { canvasName: 'Test', onLeave: vi.fn() } })
+    expect(screen.getByText('Pfeilspitze gefüllt')).toBeInTheDocument()
+    expect(screen.getByText('Doppelpfeil')).toBeInTheDocument()
+  })
+
   it('shows the font dialog only for the text tool in draw mode', () => {
     toolStore.setMode('draw')
     toolStore.setTool('rect')

@@ -1,27 +1,22 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
 import { beforeEach, describe, expect, it } from 'vitest'
-import FilledToggle from './FilledToggle.svelte'
+import DoubleHeadedToggle from './DoubleHeadedToggle.svelte'
 import { toolStore } from '../lib/stores/toolStore.svelte'
 
-describe('FilledToggle', () => {
+describe('DoubleHeadedToggle', () => {
   beforeEach(() => {
-    toolStore.setFilled(false)
+    toolStore.setDoubleHeaded(false)
   })
 
   it('reflects the current store value', () => {
-    toolStore.setFilled(true)
-    render(FilledToggle)
+    toolStore.setDoubleHeaded(true)
+    render(DoubleHeadedToggle)
     expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true)
   })
 
   it('updates the store when toggled', async () => {
-    render(FilledToggle)
+    render(DoubleHeadedToggle)
     await fireEvent.click(screen.getByRole('checkbox'))
-    expect(toolStore.filled).toBe(true)
-  })
-
-  it('renders a custom label when provided', () => {
-    render(FilledToggle, { label: 'Pfeilspitze gefüllt' })
-    expect(screen.getByText('Pfeilspitze gefüllt')).toBeInTheDocument()
+    expect(toolStore.doubleHeaded).toBe(true)
   })
 })

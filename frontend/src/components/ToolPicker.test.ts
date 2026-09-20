@@ -21,10 +21,16 @@ describe('ToolPicker', () => {
     expect(toolStore.tool).toBe('ellipse')
   })
 
-  it('renders all six tools', () => {
+  it('renders all seven tools', () => {
     render(ToolPicker)
-    for (const label of ['Freihand', 'Linie', 'Rechteck', 'Kreis', 'Ellipse', 'Text']) {
+    for (const label of ['Freihand', 'Linie', 'Rechteck', 'Kreis', 'Ellipse', 'Text', 'Pfeil']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
+  })
+
+  it('switches to the arrow tool on click', async () => {
+    render(ToolPicker)
+    await fireEvent.click(screen.getByText('Pfeil'))
+    expect(toolStore.tool).toBe('arrow')
   })
 })

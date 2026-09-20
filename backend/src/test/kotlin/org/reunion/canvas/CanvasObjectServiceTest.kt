@@ -10,6 +10,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.reunion.canvas.entity.CanvasEntity
 import org.reunion.canvas.repository.CanvasRepository
 import org.reunion.canvas.service.CanvasObjectService
+import org.reunion.canvas.shape.ArrowShapeData
 import org.reunion.canvas.shape.CircleShapeData
 import org.reunion.canvas.shape.EllipseShapeData
 import org.reunion.canvas.shape.FreehandShapeData
@@ -54,6 +55,8 @@ class CanvasObjectServiceTest {
                 fontFamily = "Arial", fontSize = 16.0,
                 bold = true, italic = false, underline = true, strikethrough = false,
             ),
+            ArrowShapeData(color = "#123456", strokeWidth = 2.0, filled = true, x1 = 0.0, y1 = 0.0, x2 = 40.0, y2 = 20.0, doubleHeaded = false),
+            ArrowShapeData(color = "#654321", strokeWidth = 3.0, filled = false, x1 = 5.0, y1 = 5.0, x2 = -10.0, y2 = 15.0, doubleHeaded = true),
         )
     }
 

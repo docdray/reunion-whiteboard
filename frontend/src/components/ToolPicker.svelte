@@ -9,6 +9,7 @@
     { value: 'circle', label: 'Kreis' },
     { value: 'ellipse', label: 'Ellipse' },
     { value: 'text', label: 'Text' },
+    { value: 'arrow', label: 'Pfeil' },
   ]
 </script>
 

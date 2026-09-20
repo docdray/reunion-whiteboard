@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { boundsFromRect, boundsIntersect, containsPoint, shapeBounds, translateShapeData } from './shapeBounds'
 import type {
+  ArrowShapeData,
   CircleShapeData,
   EllipseShapeData,
   FreehandShapeData,
@@ -73,6 +74,21 @@ describe('shapeBounds', () => {
     expect(bounds.maxX).toBeGreaterThan(0)
     expect(bounds.maxY).toBeGreaterThan(0)
   })
+
+  it('berechnet Bounds für arrow unabhängig von der Zugrichtung', () => {
+    const data: ArrowShapeData = {
+      type: 'arrow',
+      color: '#000',
+      strokeWidth: 1,
+      filled: true,
+      x1: 10,
+      y1: 10,
+      x2: 2,
+      y2: 30,
+      doubleHeaded: false,
+    }
+    expect(shapeBounds(data)).toEqual({ minX: 2, minY: 10, maxX: 10, maxY: 30 })
+  })
 })
 
 describe('boundsIntersect', () => {
@@ -129,6 +145,22 @@ describe('translateShapeData', () => {
     const data: LineShapeData = { type: 'line', color: '#000', strokeWidth: 1, x1: 0, y1: 0, x2: 10, y2: 10 }
     const moved = translateShapeData(data, 2, 3) as LineShapeData
     expect(moved).toMatchObject({ x1: 2, y1: 3, x2: 12, y2: 13 })
+  })
+
+  it('verschiebt beide Endpunkte eines arrow', () => {
+    const data: ArrowShapeData = {
+      type: 'arrow',
+      color: '#000',
+      strokeWidth: 1,
+      filled: true,
+      x1: 0,
+      y1: 0,
+      x2: 10,
+      y2: 10,
+      doubleHeaded: true,
+    }
+    const moved = translateShapeData(data, 2, 3) as ArrowShapeData
+    expect(moved).toMatchObject({ x1: 2, y1: 3, x2: 12, y2: 13, doubleHeaded: true })
   })
 
   it('verschiebt x/y bei rect/circle/ellipse/text, andere Felder bleiben unverändert', () => {

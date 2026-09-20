@@ -53,6 +53,13 @@ export function shapeBounds(data: ShapeData): Bounds {
       const height = data.fontSize * TEXT_LINE_HEIGHT_FACTOR
       return { minX: data.x, minY: data.y, maxX: data.x + width, maxY: data.y + height }
     }
+    case 'arrow':
+      return {
+        minX: Math.min(data.x1, data.x2),
+        minY: Math.min(data.y1, data.y2),
+        maxX: Math.max(data.x1, data.x2),
+        maxY: Math.max(data.y1, data.y2),
+      }
   }
 }
 
@@ -74,6 +81,7 @@ export function translateShapeData(data: ShapeData, dx: number, dy: number): Sha
     case 'freehand':
       return { ...data, points: data.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) }
     case 'line':
+    case 'arrow':
       return { ...data, x1: data.x1 + dx, y1: data.y1 + dy, x2: data.x2 + dx, y2: data.y2 + dy }
     case 'rect':
     case 'circle':

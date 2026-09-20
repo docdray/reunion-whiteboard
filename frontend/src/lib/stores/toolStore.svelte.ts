@@ -15,6 +15,7 @@ class ToolStore {
   italic = $state(false)
   underline = $state(false)
   strikethrough = $state(false)
+  doubleHeaded = $state(false)
 
   setMode(mode: Mode): void {
     this.mode = mode
@@ -60,6 +61,10 @@ class ToolStore {
     this.strikethrough = strikethrough
   }
 
+  setDoubleHeaded(doubleHeaded: boolean): void {
+    this.doubleHeaded = doubleHeaded
+  }
+
   get drawSettings(): DrawSettings {
     return {
       color: this.color,
@@ -71,6 +76,7 @@ class ToolStore {
       italic: this.italic,
       underline: this.underline,
       strikethrough: this.strikethrough,
+      doubleHeaded: this.doubleHeaded,
     }
   }
 }

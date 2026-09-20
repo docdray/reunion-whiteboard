@@ -1,4 +1,5 @@
 import type {
+  ArrowShapeData,
   CircleShapeData,
   EllipseShapeData,
   FreehandShapeData,
@@ -20,6 +21,7 @@ export interface DrawSettings {
   italic: boolean
   underline: boolean
   strikethrough: boolean
+  doubleHeaded: boolean
 }
 
 export interface DragGeometry {
@@ -97,6 +99,20 @@ export function ellipseFromDrag(geometry: DragGeometry, settings: DrawSettings):
   }
 }
 
+export function arrowFromDrag(geometry: DragGeometry, settings: DrawSettings): ArrowShapeData {
+  return {
+    type: 'arrow',
+    color: settings.color,
+    strokeWidth: settings.strokeWidth,
+    filled: settings.filled,
+    x1: geometry.start.x,
+    y1: geometry.start.y,
+    x2: geometry.end.x,
+    y2: geometry.end.y,
+    doubleHeaded: settings.doubleHeaded,
+  }
+}
+
 export function textFromClick(point: PointDto, content: string, settings: DrawSettings): TextShapeData {
   return {
     type: 'text',
@@ -130,5 +146,7 @@ export function shapeDataFromDrag(
       return circleFromDrag(geometry, settings)
     case 'ellipse':
       return ellipseFromDrag(geometry, settings)
+    case 'arrow':
+      return arrowFromDrag(geometry, settings)
   }
 }
