@@ -18,6 +18,7 @@ class CanvasObjectService @Inject constructor(
     private val objectMapper: ObjectMapper,
 ) {
 
+    @Transactional
     fun listForCanvas(canvasId: UUID): List<CanvasObjectDto> =
         repository.listByCanvasOrderedBySequence(canvasId).map { it.toDto() }
 
