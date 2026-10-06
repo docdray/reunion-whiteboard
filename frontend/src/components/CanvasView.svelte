@@ -14,6 +14,7 @@
   import { DrawInteraction } from '../lib/interaction/drawMode'
   import { SelectInteraction } from '../lib/interaction/selectMode'
   import { EraserInteraction, eraserRadius } from '../lib/interaction/eraserMode'
+  import { buildContentUpdate, findEditableTextObject } from '../lib/interaction/editTextMode'
   import Toolbar from './Toolbar.svelte'
 
   interface Props {
@@ -216,6 +217,18 @@
     }
   }
 
+  function handleDoubleClick(event: MouseEvent): void {
+    if (toolStore.mode !== 'select') return
+    const rect = containerEl.getBoundingClientRect()
+    const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
+    const hit = findEditableTextObject(canvasStore.objects, world)
+    if (!hit) return
+    const update = buildContentUpdate(hit, (current) => window.prompt('Text bearbeiten:', current))
+    if (!update) return
+    canvasStore.updateData(update.id, update.data)
+    socket?.send({ type: 'object-update', objects: [update] })
+  }
+
   function handleCenterView(): void {
     const bounds = unionBounds(canvasStore.objects.map((o) => shapeBounds(o.data)))
     viewportStore.setViewport(centerView(bounds, containerEl.clientWidth, containerEl.clientHeight))
@@ -274,6 +287,7 @@
   onpointermove={handlePointerMove}
   onpointerup={handlePointerUp}
   onpointerleave={() => (eraserPointer = null)}
+  ondblclick={handleDoubleClick}
 ></div>
 
 <!--

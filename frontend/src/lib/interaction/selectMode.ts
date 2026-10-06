@@ -26,7 +26,8 @@ type DragState =
   | { kind: 'marquee'; start: PointDto }
   | { kind: 'move'; start: PointDto; snapshot: CanvasObjectDto[] }
 
-function hitTest(objects: CanvasObjectDto[], point: PointDto): CanvasObjectDto | null {
+/** Liefert das oberste (zuletzt erzeugte) Objekt unter `point`, oder `null`. Von Klick-Selektion und Doppelklick-Textbearbeitung geteilt. */
+export function hitTest(objects: CanvasObjectDto[], point: PointDto): CanvasObjectDto | null {
   for (let i = objects.length - 1; i >= 0; i--) {
     const obj = objects[i]
     if (containsPoint(shapeBounds(obj.data), point)) return obj
