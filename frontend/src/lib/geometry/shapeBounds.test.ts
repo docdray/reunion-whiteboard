@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boundsFromRect, boundsIntersect, containsPoint, shapeBounds, translateShapeData } from './shapeBounds'
+import { boundsFromRect, boundsIntersect, containsPoint, paddedBoundsForSelection, shapeBounds, translateShapeData } from './shapeBounds'
 import type {
   ArrowShapeData,
   CircleShapeData,
@@ -126,6 +126,23 @@ describe('boundsIntersect', () => {
     expect(boundsIntersect({ minX: 0, minY: 0, maxX: 10, maxY: 10 }, { minX: 10, minY: 10, maxX: 20, maxY: 20 })).toBe(
       true,
     )
+  })
+})
+
+describe('paddedBoundsForSelection', () => {
+  it('erweitert die Bounding-Box um den Standard-Rand (6)', () => {
+    const data: RectShapeData = { type: 'rect', color: '#000', strokeWidth: 1, filled: false, x: 5, y: 5, width: 10, height: 20 }
+    expect(paddedBoundsForSelection(data)).toEqual({ minX: -1, minY: -1, maxX: 21, maxY: 31 })
+  })
+
+  it('erlaubt einen eigenen Rand-Wert', () => {
+    const data: RectShapeData = { type: 'rect', color: '#000', strokeWidth: 1, filled: false, x: 0, y: 0, width: 10, height: 10 }
+    expect(paddedBoundsForSelection(data, 2)).toEqual({ minX: -2, minY: -2, maxX: 12, maxY: 12 })
+  })
+
+  it('funktioniert auch bei einer Bounding-Box ohne Ausdehnung (z.B. eine vertikale line)', () => {
+    const data: LineShapeData = { type: 'line', color: '#000', strokeWidth: 1, x1: 5, y1: 0, x2: 5, y2: 10 }
+    expect(paddedBoundsForSelection(data, 3)).toEqual({ minX: 2, minY: -3, maxX: 8, maxY: 13 })
   })
 })
 

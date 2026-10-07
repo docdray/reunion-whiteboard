@@ -3,7 +3,7 @@ import { canvasStore } from '../stores/canvasStore.svelte'
 import { previewStore } from '../stores/previewStore.svelte'
 import { viewportStore } from '../stores/viewportStore.svelte'
 import { selectionStore } from '../stores/selectionStore.svelte'
-import { translateShapeData } from '../geometry/shapeBounds'
+import { paddedBoundsForSelection, translateShapeData } from '../geometry/shapeBounds'
 import { arrowHeadWings } from '../geometry/arrowHead'
 import { computeGridLines } from '../geometry/gridLines'
 import type { ArrowShapeData, ShapeData, StickyNoteShapeData } from '../protocol/messages'
@@ -16,14 +16,7 @@ type VisualNode = Konva.Shape | Konva.Group
 const STICKY_NOTE_TEXT_COLOR = '#1a1a1a'
 const STICKY_NOTE_PADDING = 10
 
-function applySelectionStyle(node: VisualNode, selected: boolean): void {
-  node.setAttrs({
-    shadowColor: '#4a90d9',
-    shadowBlur: selected ? 10 : 0,
-    shadowOpacity: selected ? 0.9 : 0,
-    shadowEnabled: selected,
-  })
-}
+const SELECTION_COLOR = '#4a90d9'
 
 function configFor(data: ShapeData): Record<string, unknown> {
   switch (data.type) {
@@ -323,8 +316,12 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
   const layer = new Konva.Layer()
   stage.add(layer)
 
+  const selectionLayer = new Konva.Layer({ listening: false })
+  stage.add(selectionLayer)
+
   const nodesById = new Map<string, VisualNode>()
   const previewNodesByKey = new Map<string, VisualNode>()
+  const selectionRectsById = new Map<string, Konva.Rect>()
 
   function applyPreviewStyle(node: VisualNode): void {
     node.opacity(0.6)
@@ -352,6 +349,7 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
       stage.scale({ x: viewportStore.scale, y: viewportStore.scale })
       layer.batchDraw()
       gridLayer.batchDraw()
+      selectionLayer.batchDraw()
     })
 
     $effect(() => {
@@ -363,7 +361,36 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
         seen.add(obj.id)
         const isSelected = selected.has(obj.id)
         const data = isSelected && moveDelta ? translateShapeData(obj.data, moveDelta.dx, moveDelta.dy) : obj.data
-        syncNode(layer, nodesById, obj.id, data, (n) => applySelectionStyle(n, isSelected))
+        syncNode(layer, nodesById, obj.id, data, () => {})
+
+        if (isSelected) {
+          const b = paddedBoundsForSelection(data)
+          const rectConfig = {
+            x: b.minX,
+            y: b.minY,
+            width: b.maxX - b.minX,
+            height: b.maxY - b.minY,
+            stroke: SELECTION_COLOR,
+            strokeWidth: 2,
+            dash: [4, 3],
+            strokeScaleEnabled: false,
+            listening: false,
+          }
+          const existingRect = selectionRectsById.get(obj.id)
+          if (existingRect) {
+            existingRect.setAttrs(rectConfig)
+          } else {
+            const rect = new Konva.Rect(rectConfig)
+            selectionRectsById.set(obj.id, rect)
+            selectionLayer.add(rect)
+          }
+        } else {
+          const existingRect = selectionRectsById.get(obj.id)
+          if (existingRect) {
+            existingRect.destroy()
+            selectionRectsById.delete(obj.id)
+          }
+        }
       }
       for (const [id, konvaNode] of nodesById) {
         if (!seen.has(id)) {
@@ -371,7 +398,14 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
           nodesById.delete(id)
         }
       }
+      for (const [id, rect] of selectionRectsById) {
+        if (!seen.has(id)) {
+          rect.destroy()
+          selectionRectsById.delete(id)
+        }
+      }
       layer.batchDraw()
+      selectionLayer.batchDraw()
     })
 
     $effect(() => {

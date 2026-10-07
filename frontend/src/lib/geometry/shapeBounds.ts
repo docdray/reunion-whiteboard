@@ -84,6 +84,12 @@ export function boundsFromRect(rect: RectLike): Bounds {
   return { minX: rect.x, minY: rect.y, maxX: rect.x + rect.width, maxY: rect.y + rect.height }
 }
 
+/** Bounding-Box eines Objekts mit zusätzlichem Rand, für die Selektions-Hervorhebung. */
+export function paddedBoundsForSelection(data: ShapeData, padding = 6): Bounds {
+  const b = shapeBounds(data)
+  return { minX: b.minX - padding, minY: b.minY - padding, maxX: b.maxX + padding, maxY: b.maxY + padding }
+}
+
 export function containsPoint(bounds: Bounds, point: PointDto): boolean {
   return point.x >= bounds.minX && point.x <= bounds.maxX && point.y >= bounds.minY && point.y <= bounds.maxY
 }
