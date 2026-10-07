@@ -1,5 +1,22 @@
 <script lang="ts">
   import { toolStore } from '../lib/stores/toolStore.svelte'
+  import { canvasStore } from '../lib/stores/canvasStore.svelte'
+  import { selectionStore } from '../lib/stores/selectionStore.svelte'
+  import type { ObjectUpdateEntry } from '../lib/protocol/messages'
+  import {
+    hasFilled,
+    hasFont,
+    hasStrokeWidth,
+    withBold,
+    withColor,
+    withFilled,
+    withFontFamily,
+    withFontSize,
+    withItalic,
+    withStrikethrough,
+    withStrokeWidth,
+    withUnderline,
+  } from '../lib/interaction/selectionStyleEdit'
   import ModeSwitch from './ModeSwitch.svelte'
   import ToolPicker from './ToolPicker.svelte'
   import ColorPicker from './ColorPicker.svelte'
@@ -12,22 +29,67 @@
     canvasName: string
     onLeave: () => void
     onCenterView: () => void
+    onApplyStyleToSelection: (updates: ObjectUpdateEntry[]) => void
   }
 
-  let { canvasName, onLeave, onCenterView }: Props = $props()
+  let { canvasName, onLeave, onCenterView, onApplyStyleToSelection }: Props = $props()
 
   const isDraw = $derived(toolStore.mode === 'draw')
   const isNavigation = $derived(toolStore.mode === 'navigation')
+  const isSelect = $derived(toolStore.mode === 'select')
+  const selectedObjects = $derived(canvasStore.objects.filter((o) => selectionStore.selectedIds.has(o.id)))
+  const hasSelection = $derived(selectedObjects.length > 0)
+
+  const showColorPicker = $derived(isDraw || (isSelect && hasSelection))
+  const showStrokeWidthSelector = $derived(
+    isDraw || (isSelect && selectedObjects.some((o) => hasStrokeWidth(o.data))),
+  )
   const showFilledToggle = $derived(
-    isDraw &&
+    (isDraw &&
       (toolStore.tool === 'rect' ||
         toolStore.tool === 'circle' ||
         toolStore.tool === 'ellipse' ||
-        toolStore.tool === 'arrow'),
+        toolStore.tool === 'arrow')) ||
+      (isSelect && selectedObjects.some((o) => hasFilled(o.data))),
   )
-  const showFontDialog = $derived(isDraw && (toolStore.tool === 'text' || toolStore.tool === 'sticky-note'))
+  const showFontDialog = $derived(
+    (isDraw && (toolStore.tool === 'text' || toolStore.tool === 'sticky-note')) ||
+      (isSelect && selectedObjects.some((o) => hasFont(o.data))),
+  )
   const showDoubleHeadedToggle = $derived(isDraw && toolStore.tool === 'arrow')
   const filledToggleLabel = $derived(toolStore.tool === 'arrow' ? 'Pfeilspitze gefüllt' : 'Gefüllt')
+
+  function applyToSelection(updates: ObjectUpdateEntry[]): void {
+    if (updates.length > 0) onApplyStyleToSelection(updates)
+  }
+
+  function handleColorChange(color: string): void {
+    if (isSelect) applyToSelection(withColor(selectedObjects, color))
+  }
+  function handleStrokeWidthChange(strokeWidth: number): void {
+    if (isSelect) applyToSelection(withStrokeWidth(selectedObjects, strokeWidth))
+  }
+  function handleFilledChange(filled: boolean): void {
+    if (isSelect) applyToSelection(withFilled(selectedObjects, filled))
+  }
+  function handleFontFamilyChange(fontFamily: string): void {
+    if (isSelect) applyToSelection(withFontFamily(selectedObjects, fontFamily))
+  }
+  function handleFontSizeChange(fontSize: number): void {
+    if (isSelect) applyToSelection(withFontSize(selectedObjects, fontSize))
+  }
+  function handleBoldChange(bold: boolean): void {
+    if (isSelect) applyToSelection(withBold(selectedObjects, bold))
+  }
+  function handleItalicChange(italic: boolean): void {
+    if (isSelect) applyToSelection(withItalic(selectedObjects, italic))
+  }
+  function handleUnderlineChange(underline: boolean): void {
+    if (isSelect) applyToSelection(withUnderline(selectedObjects, underline))
+  }
+  function handleStrikethroughChange(strikethrough: boolean): void {
+    if (isSelect) applyToSelection(withStrikethrough(selectedObjects, strikethrough))
+  }
 </script>
 
 <div class="toolbar">
@@ -41,17 +103,29 @@
 
   {#if isDraw}
     <ToolPicker />
-    <ColorPicker />
-    <StrokeWidthSelector />
-    {#if showFilledToggle}
-      <FilledToggle label={filledToggleLabel} />
-    {/if}
-    {#if showDoubleHeadedToggle}
-      <DoubleHeadedToggle />
-    {/if}
-    {#if showFontDialog}
-      <FontDialog />
-    {/if}
+  {/if}
+
+  {#if showColorPicker}
+    <ColorPicker onColorChange={handleColorChange} />
+  {/if}
+  {#if showStrokeWidthSelector}
+    <StrokeWidthSelector onStrokeWidthChange={handleStrokeWidthChange} />
+  {/if}
+  {#if showFilledToggle}
+    <FilledToggle label={filledToggleLabel} onFilledChange={handleFilledChange} />
+  {/if}
+  {#if isDraw && showDoubleHeadedToggle}
+    <DoubleHeadedToggle />
+  {/if}
+  {#if showFontDialog}
+    <FontDialog
+      onFontFamilyChange={handleFontFamilyChange}
+      onFontSizeChange={handleFontSizeChange}
+      onBoldChange={handleBoldChange}
+      onItalicChange={handleItalicChange}
+      onUnderlineChange={handleUnderlineChange}
+      onStrikethroughChange={handleStrikethroughChange}
+    />
   {/if}
 </div>
 

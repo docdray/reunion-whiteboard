@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import FilledToggle from './FilledToggle.svelte'
 import { toolStore } from '../lib/stores/toolStore.svelte'
 
@@ -23,5 +23,13 @@ describe('FilledToggle', () => {
   it('renders a custom label when provided', () => {
     render(FilledToggle, { label: 'Pfeilspitze gefüllt' })
     expect(screen.getByText('Pfeilspitze gefüllt')).toBeInTheDocument()
+  })
+
+  it('calls onFilledChange in addition to updating the store', async () => {
+    const onFilledChange = vi.fn()
+    render(FilledToggle, { onFilledChange })
+    await fireEvent.click(screen.getByRole('checkbox'))
+    expect(onFilledChange).toHaveBeenCalledWith(true)
+    expect(toolStore.filled).toBe(true)
   })
 })

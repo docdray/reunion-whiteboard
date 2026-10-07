@@ -15,6 +15,7 @@
   import { SelectInteraction } from '../lib/interaction/selectMode'
   import { EraserInteraction, eraserRadius } from '../lib/interaction/eraserMode'
   import { buildContentUpdate, findEditableTextObject } from '../lib/interaction/editTextMode'
+  import type { ObjectUpdateEntry } from '../lib/protocol/messages'
   import Toolbar from './Toolbar.svelte'
 
   interface Props {
@@ -229,6 +230,12 @@
     socket?.send({ type: 'object-update', objects: [update] })
   }
 
+  function handleApplyStyleToSelection(updates: ObjectUpdateEntry[]): void {
+    if (updates.length === 0) return
+    for (const update of updates) canvasStore.updateData(update.id, update.data)
+    socket?.send({ type: 'object-update', objects: updates })
+  }
+
   function handleCenterView(): void {
     const bounds = unionBounds(canvasStore.objects.map((o) => shapeBounds(o.data)))
     viewportStore.setViewport(centerView(bounds, containerEl.clientWidth, containerEl.clientHeight))
@@ -313,7 +320,12 @@
   ></div>
 {/if}
 
-<Toolbar {canvasName} {onLeave} onCenterView={handleCenterView} />
+<Toolbar
+  {canvasName}
+  {onLeave}
+  onCenterView={handleCenterView}
+  onApplyStyleToSelection={handleApplyStyleToSelection}
+/>
 
 <style>
   .canvas-container {

@@ -1,6 +1,13 @@
 <script lang="ts">
   import { toolStore } from '../lib/stores/toolStore.svelte'
 
+  let { onColorChange }: { onColorChange?: (color: string) => void } = $props()
+
+  function pick(color: string): void {
+    toolStore.setColor(color)
+    onColorChange?.(color)
+  }
+
   const swatches = [
     '#000000',
     '#ffffff',
@@ -24,7 +31,7 @@
         class:active={toolStore.color === swatch}
         style={`background:${swatch}`}
         aria-label={swatch}
-        onclick={() => toolStore.setColor(swatch)}
+        onclick={() => pick(swatch)}
       ></button>
     {/each}
   </div>
@@ -33,7 +40,7 @@
     <input
       type="color"
       value={toolStore.color}
-      oninput={(e) => toolStore.setColor((e.currentTarget as HTMLInputElement).value)}
+      oninput={(e) => pick((e.currentTarget as HTMLInputElement).value)}
     />
   </label>
 </div>

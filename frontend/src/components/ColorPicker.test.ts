@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ColorPicker from './ColorPicker.svelte'
 import { toolStore } from '../lib/stores/toolStore.svelte'
 
@@ -31,5 +31,13 @@ describe('ColorPicker', () => {
     const input = screen.getByDisplayValue('#000000') as HTMLInputElement
     await fireEvent.input(input, { target: { value: '#123456' } })
     expect(toolStore.color).toBe('#123456')
+  })
+
+  it('calls onColorChange in addition to updating the store', async () => {
+    const onColorChange = vi.fn()
+    render(ColorPicker, { onColorChange })
+    await fireEvent.click(screen.getByLabelText('#1e88e5'))
+    expect(onColorChange).toHaveBeenCalledWith('#1e88e5')
+    expect(toolStore.color).toBe('#1e88e5')
   })
 })
