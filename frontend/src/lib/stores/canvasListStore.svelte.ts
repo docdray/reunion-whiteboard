@@ -1,11 +1,13 @@
 import { createCanvas, deleteCanvas } from '../api/canvasApi'
 import { connectLobbySocket, type LobbySocket } from '../api/lobbyWs'
+import type { ConnectionStatus } from '../api/reconnectingSocket'
 import type { CanvasSummaryDto } from '../protocol/messages'
 
 class CanvasListStore {
   canvases = $state<CanvasSummaryDto[]>([])
   loading = $state(false)
   error = $state<string | null>(null)
+  status = $state<ConnectionStatus>('connecting')
   private socket: LobbySocket | null = null
 
   /** Neueste zuerst. */
@@ -24,6 +26,9 @@ class CanvasListStore {
     this.loading = true
     this.error = null
     this.socket = connectLobbySocket()
+    this.socket.onStatusChange((status) => {
+      this.status = status
+    })
     this.socket.onMessage((msg) => {
       switch (msg.type) {
         case 'lobby-initial-state':

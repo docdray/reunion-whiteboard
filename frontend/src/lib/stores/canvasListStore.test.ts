@@ -3,6 +3,7 @@ import type { LobbyServerMessage, CanvasSummaryDto } from '../protocol/messages'
 
 const mockSocket = {
   onMessage: vi.fn<(handler: (msg: LobbyServerMessage) => void) => void>(),
+  onStatusChange: vi.fn<(handler: (status: string) => void) => void>(),
   close: vi.fn(),
 }
 let capturedHandler: ((msg: LobbyServerMessage) => void) | null = null
@@ -29,6 +30,7 @@ describe('canvasListStore', () => {
     vi.resetModules()
     capturedHandler = null
     mockSocket.close.mockClear()
+    mockSocket.onStatusChange.mockClear()
   })
 
   afterEach(() => {

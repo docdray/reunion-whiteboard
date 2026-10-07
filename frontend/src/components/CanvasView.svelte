@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
   import { connectCanvasSocket, type CanvasSocket } from '../lib/api/ws'
+  import type { ConnectionStatus } from '../lib/api/reconnectingSocket'
   import { canvasStore } from '../lib/stores/canvasStore.svelte'
   import { presenceStore } from '../lib/stores/presenceStore.svelte'
   import { previewStore } from '../lib/stores/previewStore.svelte'
@@ -35,6 +36,7 @@
   let lastCursorSendAt = 0
   let lastDrawPreviewSendAt = 0
   let eraserPointer = $state<{ x: number; y: number } | null>(null)
+  let connectionStatus = $state<ConnectionStatus>('connecting')
 
   const CURSOR_SEND_INTERVAL_MS = 50
   const DRAW_PREVIEW_SEND_INTERVAL_MS = 50
@@ -118,6 +120,9 @@
     window.addEventListener('keydown', handleKeyDown)
 
     socket = connectCanvasSocket(canvasId, displayName)
+    socket.onStatusChange((status) => {
+      connectionStatus = status
+    })
     socket.onMessage((msg) => {
       switch (msg.type) {
         case 'initial-state':
@@ -345,6 +350,11 @@
     style={`left:${eraserPreview.x - eraserPreview.radius}px; top:${eraserPreview.y - eraserPreview.radius}px; width:${eraserPreview.radius * 2}px; height:${eraserPreview.radius * 2}px;`}
   ></div>
 {/if}
+{#if connectionStatus !== 'connected'}
+  <div class="connection-banner">
+    {connectionStatus === 'connecting' ? 'Verbinde …' : 'Verbindung unterbrochen – verbinde erneut …'}
+  </div>
+{/if}
 
 <Toolbar
   {canvasName}
@@ -393,6 +403,21 @@
     border: 1px dashed #d94a4a;
     border-radius: 50%;
     background: rgba(217, 74, 74, 0.08);
+  }
+
+  .connection-banner {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+    background: #d9822b;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   .remote-cursor-label {

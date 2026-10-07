@@ -42,6 +42,12 @@
     <p class="error">{canvasListStore.error}</p>
   {/if}
 
+  {#if canvasListStore.status !== 'connected'}
+    <p class="status-hint">
+      {canvasListStore.status === 'connecting' ? 'Verbinde …' : 'Verbindung unterbrochen – verbinde erneut …'}
+    </p>
+  {/if}
+
   <div class="table-card">
     <table>
       <thead>
@@ -108,6 +114,16 @@
 
   .btn-create:hover {
     background: #3f4de0;
+  }
+
+  .status-hint {
+    margin: 0;
+    color: #92400e;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.85rem;
   }
 
   .error {

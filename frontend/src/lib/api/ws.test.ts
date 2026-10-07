@@ -87,4 +87,11 @@ describe('connectCanvasSocket', () => {
     socket.close()
     expect(MockWebSocket.instances[0].readyState).toBe(3)
   })
+
+  it('onStatusChange() reports connecting immediately', () => {
+    const socket = connectCanvasSocket('abc', 'Bob')
+    const statuses: string[] = []
+    socket.onStatusChange((s) => statuses.push(s))
+    expect(statuses).toEqual(['connecting'])
+  })
 })
