@@ -117,11 +117,39 @@ class CanvasObjectServiceTest {
         val created = canvasObjectService.create(canvasId, RectShapeData("#abcabc", 1.0, false, 0.0, 0.0, 10.0, 10.0))
 
         val moved = RectShapeData("#abcabc", 1.0, false, 50.0, 50.0, 10.0, 10.0)
-        val updated = canvasObjectService.update(listOf(created.id to moved))
+        val updated = canvasObjectService.update(canvasId, listOf(created.id to moved))
         assertEquals(moved, updated.first().data)
         assertEquals(moved, canvasObjectService.listForCanvas(canvasId).first().data)
 
         canvasObjectService.delete(canvasId, listOf(created.id))
         assertEquals(0, canvasObjectService.listForCanvas(canvasId).size)
+    }
+
+    @Test
+    fun `update ignores ids that belong to a different canvas`() {
+        val canvasA = createCanvas()
+        val canvasB = createCanvas()
+        val objectInA = canvasObjectService.create(canvasA, RectShapeData("#111111", 1.0, false, 0.0, 0.0, 10.0, 10.0))
+        val objectInB = canvasObjectService.create(canvasB, RectShapeData("#222222", 1.0, false, 0.0, 0.0, 10.0, 10.0))
+
+        // Ein Client in canvasB versucht, ein Objekt aus canvasA zu aendern (z.B. veraltete ID
+        // aus einem zweiten Tab) - das darf nicht wirken.
+        val attackPayload = RectShapeData("#ffffff", 1.0, false, 99.0, 99.0, 1.0, 1.0)
+        val result = canvasObjectService.update(canvasB, listOf(objectInA.id to attackPayload))
+
+        assertEquals(0, result.size, "fremde ID darf nicht aktualisiert werden")
+        assertEquals(
+            objectInA.data,
+            canvasObjectService.listForCanvas(canvasA).first().data,
+            "Objekt in canvasA darf unveraendert bleiben",
+        )
+        assertEquals(objectInB.data, canvasObjectService.listForCanvas(canvasB).first().data)
+    }
+
+    @Test
+    fun `update ignores ids that no longer exist`() {
+        val canvasId = createCanvas()
+        val result = canvasObjectService.update(canvasId, listOf(UUID.randomUUID() to RectShapeData("#000000", 1.0, false, 0.0, 0.0, 1.0, 1.0)))
+        assertEquals(0, result.size)
     }
 }

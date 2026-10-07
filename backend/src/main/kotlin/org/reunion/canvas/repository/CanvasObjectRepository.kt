@@ -18,4 +18,7 @@ class CanvasObjectRepository : PanacheRepositoryBase<CanvasObjectEntity, UUID> {
 
     fun deleteByIds(canvasId: UUID, ids: List<UUID>): Long =
         delete("canvasId = ?1 and id in ?2", canvasId, ids)
+
+    fun deleteByCanvasId(canvasId: UUID): Long =
+        delete("canvasId = ?1", canvasId)
 }

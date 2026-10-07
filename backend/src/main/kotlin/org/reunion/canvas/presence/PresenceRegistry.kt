@@ -12,14 +12,42 @@ import java.util.concurrent.ConcurrentHashMap
 class PresenceRegistry {
     private val byCanvas = ConcurrentHashMap<UUID, ConcurrentHashMap<String, PresenceInfo>>()
 
-    fun join(canvasId: UUID, connectionId: String, displayName: String): PresenceInfo {
-        val info = PresenceInfo(userId = connectionId, displayName = displayName, color = PresenceColors.next())
-        byCanvas.computeIfAbsent(canvasId) { ConcurrentHashMap() }[connectionId] = info
-        return info
-    }
+    /** Eine JVM-Monitor-Sperre pro canvasId, geteilt von [join] und [withCanvasLock]. */
+    private val canvasLocks = ConcurrentHashMap<UUID, Any>()
+
+    private fun lockFor(canvasId: UUID): Any = canvasLocks.computeIfAbsent(canvasId) { Any() }
+
+    /**
+     * Fuehrt [block] unter derselben Sperre aus wie [join] fuer diese canvasId. Damit kann z.B.
+     * eine "sind noch Nutzer da?"-Pruefung gefolgt von einer Loesch-Aktion atomar gegenueber
+     * einem gleichzeitig beitretenden Nutzer gemacht werden (verhindert eine TOCTOU-Race beim
+     * Canvas-Loeschen). Fuer eine Einzelinstanz-App ohne Clusterung reicht eine einfache
+     * In-Process-Sperre.
+     */
+    fun <T> withCanvasLock(canvasId: UUID, block: () -> T): T =
+        synchronized(lockFor(canvasId)) { block() }
+
+    fun join(canvasId: UUID, connectionId: String, displayName: String): PresenceInfo =
+        synchronized(lockFor(canvasId)) {
+            val info = PresenceInfo(userId = connectionId, displayName = displayName, color = PresenceColors.next())
+            byCanvas.computeIfAbsent(canvasId) { ConcurrentHashMap() }[connectionId] = info
+            info
+        }
 
     fun leave(canvasId: UUID, connectionId: String): PresenceInfo? =
-        byCanvas[canvasId]?.remove(connectionId)
+        synchronized(lockFor(canvasId)) {
+            val connections = byCanvas[canvasId] ?: return@synchronized null
+            val removed = connections.remove(connectionId)
+            // Nur den (jetzt leeren) Praesenz-Eintrag entfernen, NICHT das Lock-Objekt selbst -
+            // ein zwischenzeitlich entferntes Lock-Objekt koennte dazu fuehren, dass ein
+            // gleichzeitiger Aufrufer ueber lockFor() ein ANDERES Lock-Objekt fuer dieselbe
+            // canvasId erhaelt und die gegenseitige Ausschliessung mit withCanvasLock/join
+            // umgeht. Ein Lock-Objekt pro jemals genutzter canvasId ist vernachlaessigbar klein.
+            if (connections.isEmpty()) {
+                byCanvas.remove(canvasId)
+            }
+            removed
+        }
 
     fun updateCursor(canvasId: UUID, connectionId: String, x: Double, y: Double): PresenceInfo? {
         val connections = byCanvas[canvasId] ?: return null

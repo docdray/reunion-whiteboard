@@ -81,7 +81,7 @@ class CanvasWebSocketEndpoint @Inject constructor(
             }
 
             is ClientMessage.ObjectUpdate -> {
-                val updated = canvasObjectService.update(message.objects.map { it.id to it.data })
+                val updated = canvasObjectService.update(id, message.objects.map { it.id to it.data })
                 connection.broadcast()
                     .filter { it.pathParam("canvasId") == canvasId }
                     .sendTextAndAwait(ServerMessage.ObjectUpdated(updated))

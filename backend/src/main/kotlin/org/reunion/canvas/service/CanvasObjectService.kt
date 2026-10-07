@@ -35,10 +35,16 @@ class CanvasObjectService @Inject constructor(
         return entity.toDto()
     }
 
+    /**
+     * Aktualisiert nur Objekte, die TATSAECHLICH zu [canvasId] gehoeren - IDs, die nicht
+     * existieren oder zu einem anderen Canvas gehoeren, werden still uebersprungen (kein
+     * Fehler), analog zum bestehenden Verhalten bei nicht-existenten IDs. Verhindert, dass ein
+     * Client in Canvas A ueber eine veraltete/fremde ID ein Objekt in Canvas B veraendert.
+     */
     @Transactional
-    fun update(updates: List<Pair<UUID, ShapeData>>): List<CanvasObjectDto> =
+    fun update(canvasId: UUID, updates: List<Pair<UUID, ShapeData>>): List<CanvasObjectDto> =
         updates.mapNotNull { (id, data) ->
-            val entity = repository.findById(id) ?: return@mapNotNull null
+            val entity = repository.findById(id)?.takeIf { it.canvasId == canvasId } ?: return@mapNotNull null
             entity.type = data.typeName
             entity.data = objectMapper.writeValueAsString(data)
             entity.toDto()

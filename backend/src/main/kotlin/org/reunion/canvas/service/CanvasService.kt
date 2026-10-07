@@ -6,6 +6,7 @@ import jakarta.transaction.Transactional
 import org.reunion.canvas.dto.CanvasSummaryDto
 import org.reunion.canvas.entity.CanvasEntity
 import org.reunion.canvas.presence.PresenceRegistry
+import org.reunion.canvas.repository.CanvasObjectRepository
 import org.reunion.canvas.repository.CanvasRepository
 import org.reunion.canvas.ws.LobbyBroadcaster
 import java.time.Instant
@@ -17,6 +18,7 @@ class CanvasNotFoundException(val canvasId: UUID) : RuntimeException("Canvas $ca
 @ApplicationScoped
 class CanvasService @Inject constructor(
     private val canvasRepository: CanvasRepository,
+    private val canvasObjectRepository: CanvasObjectRepository,
     private val presenceRegistry: PresenceRegistry,
     private val lobbyBroadcaster: LobbyBroadcaster,
 ) {
@@ -41,14 +43,23 @@ class CanvasService @Inject constructor(
         return dto
     }
 
+    /**
+     * Die "sind noch Nutzer da?"-Pruefung und das eigentliche Loeschen laufen unter derselben
+     * Sperre wie [PresenceRegistry.join] fuer diese canvasId - verhindert, dass ein Nutzer genau
+     * zwischen Pruefung und Loeschung unbemerkt beitritt (TOCTOU-Race) und anschliessend in
+     * einem bereits geloeschten Canvas sitzt.
+     */
     @Transactional
     fun delete(id: UUID) {
-        if (presenceRegistry.activeUserCount(id) > 0) {
-            throw CanvasHasActiveUsersException(id)
-        }
-        val deleted = canvasRepository.deleteById(id)
-        if (!deleted) {
-            throw CanvasNotFoundException(id)
+        presenceRegistry.withCanvasLock(id) {
+            if (presenceRegistry.activeUserCount(id) > 0) {
+                throw CanvasHasActiveUsersException(id)
+            }
+            canvasObjectRepository.deleteByCanvasId(id)
+            val deleted = canvasRepository.deleteById(id)
+            if (!deleted) {
+                throw CanvasNotFoundException(id)
+            }
         }
         lobbyBroadcaster.canvasRemoved(id)
     }
