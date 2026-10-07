@@ -14,6 +14,7 @@ const settings: DrawSettings = {
   underline: false,
   strikethrough: false,
   doubleHeaded: false,
+  textColor: '#1a1a1a',
 }
 
 function makeInteraction(requestTextContent: (point: PointDto) => string | null = () => 'Hallo') {

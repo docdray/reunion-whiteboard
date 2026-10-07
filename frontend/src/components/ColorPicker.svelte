@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { toolStore } from '../lib/stores/toolStore.svelte'
-
-  let { onColorChange }: { onColorChange?: (color: string) => void } = $props()
-
-  function pick(color: string): void {
-    toolStore.setColor(color)
-    onColorChange?.(color)
+  interface Props {
+    value: string
+    label?: string
+    onChange: (color: string) => void
   }
+
+  let { value, label = 'Farbauswahl', onChange }: Props = $props()
 
   const swatches = [
     '#000000',
@@ -23,25 +22,22 @@
 </script>
 
 <div class="color-picker">
-  <div class="swatches" role="group" aria-label="Farbauswahl">
+  {#if label}<span class="label">{label}</span>{/if}
+  <div class="swatches" role="group" aria-label={label}>
     {#each swatches as swatch (swatch)}
       <button
         type="button"
         class="swatch"
-        class:active={toolStore.color === swatch}
+        class:active={value === swatch}
         style={`background:${swatch}`}
         aria-label={swatch}
-        onclick={() => pick(swatch)}
+        onclick={() => onChange(swatch)}
       ></button>
     {/each}
   </div>
   <label>
-    <span class="sr-only">Eigene Farbe</span>
-    <input
-      type="color"
-      value={toolStore.color}
-      oninput={(e) => pick((e.currentTarget as HTMLInputElement).value)}
-    />
+    <span class="sr-only">{label} (eigene Farbe)</span>
+    <input type="color" {value} oninput={(e) => onChange((e.currentTarget as HTMLInputElement).value)} />
   </label>
 </div>
 
@@ -50,6 +46,11 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .label {
+    font-size: 0.8em;
+    color: #555;
   }
 
   .swatches {

@@ -24,6 +24,7 @@ const settings: DrawSettings = {
   underline: true,
   strikethrough: false,
   doubleHeaded: false,
+  textColor: '#1a1a1a',
 }
 
 describe('shapeFromDrag', () => {
@@ -149,6 +150,7 @@ describe('shapeFromDrag', () => {
       italic: settings.italic,
       underline: settings.underline,
       strikethrough: settings.strikethrough,
+      textColor: settings.textColor,
     })
   })
 })

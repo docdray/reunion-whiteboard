@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/svelte'
+import { fireEvent, render, screen, within } from '@testing-library/svelte'
+import { tick } from 'svelte'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Toolbar from './Toolbar.svelte'
 import { toolStore } from '../lib/stores/toolStore.svelte'
@@ -41,6 +42,30 @@ function textObj(id: string): CanvasObjectDto {
       italic: false,
       underline: false,
       strikethrough: false,
+    },
+  }
+}
+
+function stickyObj(id: string): CanvasObjectDto {
+  return {
+    id,
+    type: 'sticky-note',
+    sequence: 4,
+    data: {
+      type: 'sticky-note',
+      color: '#fff59d',
+      x: 0,
+      y: 0,
+      width: 160,
+      height: 120,
+      content: 'note',
+      fontFamily: 'Arial',
+      fontSize: 16,
+      bold: false,
+      italic: false,
+      underline: false,
+      strikethrough: false,
+      textColor: '#1a1a1a',
     },
   }
 }
@@ -119,6 +144,19 @@ describe('Toolbar', () => {
     expect(screen.queryByText('Gefüllt')).not.toBeInTheDocument()
   })
 
+  it('shows a separate text color picker only for the sticky-note tool, not for text', () => {
+    toolStore.setMode('draw')
+    toolStore.setTool('text')
+    const { unmount } = render(Toolbar, { props: baseProps() })
+    expect(screen.queryByRole('group', { name: 'Textfarbe' })).not.toBeInTheDocument()
+    unmount()
+
+    toolStore.setTool('sticky-note')
+    render(Toolbar, { props: baseProps() })
+    expect(screen.getByRole('group', { name: 'Farbauswahl' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Textfarbe' })).toBeInTheDocument()
+  })
+
   it('shows the stroke width group with an eraser-specific label for the eraser tool', () => {
     toolStore.setMode('draw')
     toolStore.setTool('eraser')
@@ -187,6 +225,40 @@ describe('Toolbar', () => {
       expect(screen.getByRole('group', { name: 'Linienstärke' })).toBeInTheDocument()
     })
 
+    it('syncs the displayed color/stroke width when switching the selection to a different object', async () => {
+      const red = rectObj('a')
+      red.data = { ...red.data, color: '#e53935', strokeWidth: 8 } as typeof red.data
+      canvasStore.setInitial([red, lineObj('b')])
+      toolStore.setMode('select')
+
+      selectionStore.select(['a'], false)
+      render(Toolbar, { props: baseProps() })
+      await tick()
+      expect(toolStore.color).toBe('#e53935')
+      expect(toolStore.strokeWidth).toBe(8)
+      expect(screen.getByDisplayValue('#e53935')).toBeInTheDocument()
+
+      selectionStore.select(['b'], false)
+      await tick()
+      expect(toolStore.color).toBe('#000000')
+      expect(toolStore.strokeWidth).toBe(2)
+      expect(screen.getByDisplayValue('#000000')).toBeInTheDocument()
+    })
+
+    it('leaves toolStore unchanged when the selection is cleared', async () => {
+      canvasStore.setInitial([rectObj('a')])
+      toolStore.setMode('select')
+      selectionStore.select(['a'], false)
+      render(Toolbar, { props: baseProps() })
+      await tick()
+      expect(toolStore.color).toBe('#000000')
+
+      toolStore.setColor('#123456')
+      selectionStore.clear()
+      await tick()
+      expect(toolStore.color).toBe('#123456')
+    })
+
     it('applies a color change to all selected objects via onApplyStyleToSelection', async () => {
       canvasStore.setInitial([rectObj('a'), lineObj('b')])
       selectionStore.select(['a', 'b'], false)
@@ -214,6 +286,37 @@ describe('Toolbar', () => {
       expect(onApplyStyleToSelection).toHaveBeenCalledOnce()
       const updates = onApplyStyleToSelection.mock.calls[0][0]
       expect(updates.map((u: { id: string }) => u.id)).toEqual(['a'])
+    })
+
+    it('shows the text color picker only for a selection containing a sticky-note', () => {
+      canvasStore.setInitial([rectObj('a')])
+      selectionStore.select(['a'], false)
+      toolStore.setMode('select')
+      const { unmount } = render(Toolbar, { props: baseProps() })
+      expect(screen.queryByRole('group', { name: 'Textfarbe' })).not.toBeInTheDocument()
+      unmount()
+
+      canvasStore.setInitial([stickyObj('s')])
+      selectionStore.select(['s'], false)
+      render(Toolbar, { props: baseProps() })
+      expect(screen.getByRole('group', { name: 'Textfarbe' })).toBeInTheDocument()
+    })
+
+    it('applies a text color change only to the sticky-note, leaving its background color untouched', async () => {
+      canvasStore.setInitial([stickyObj('s'), rectObj('a')])
+      selectionStore.select(['s', 'a'], false)
+      toolStore.setMode('select')
+      const onApplyStyleToSelection = vi.fn()
+      render(Toolbar, { props: { ...baseProps(), onApplyStyleToSelection } })
+
+      const textColorGroup = screen.getByRole('group', { name: 'Textfarbe' })
+      await fireEvent.click(within(textColorGroup).getByLabelText('#e53935'))
+
+      expect(onApplyStyleToSelection).toHaveBeenCalledOnce()
+      const updates = onApplyStyleToSelection.mock.calls[0][0]
+      expect(updates.map((u: { id: string }) => u.id)).toEqual(['s'])
+      expect(updates[0].data.textColor).toBe('#e53935')
+      expect(updates[0].data.color).toBe('#fff59d')
     })
 
     it('does not apply style changes while in draw mode', async () => {

@@ -8,6 +8,8 @@ class ToolStore {
   mode = $state<Mode>('navigation')
   tool = $state<DrawTool>('freehand')
   color = $state('#000000')
+  /** Separate Textfarbe für Notizzettel (unabhängig von `color`, das dort die Hintergrundfarbe ist). */
+  textColor = $state('#1a1a1a')
   strokeWidth = $state(2)
   filled = $state(false)
   fontFamily = $state('sans-serif')
@@ -28,6 +30,10 @@ class ToolStore {
 
   setColor(color: string): void {
     this.color = color
+  }
+
+  setTextColor(textColor: string): void {
+    this.textColor = textColor
   }
 
   setStrokeWidth(strokeWidth: number): void {
@@ -78,6 +84,7 @@ class ToolStore {
       underline: this.underline,
       strikethrough: this.strikethrough,
       doubleHeaded: this.doubleHeaded,
+      textColor: this.textColor,
     }
   }
 }

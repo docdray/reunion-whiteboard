@@ -42,6 +42,7 @@ function stickyObj(id: string, content: string): CanvasObjectDto {
       italic: false,
       underline: false,
       strikethrough: false,
+      textColor: '#1a1a1a',
     },
   }
 }

@@ -3,6 +3,7 @@ import type { CanvasObjectDto, ObjectUpdateEntry, ShapeData } from '../protocol/
 type WithStrokeWidth = Extract<ShapeData, { strokeWidth: number }>
 type WithFilled = Extract<ShapeData, { filled: boolean }>
 type WithFont = Extract<ShapeData, { fontFamily: string }>
+type WithTextColor = Extract<ShapeData, { type: 'sticky-note' }>
 
 export function hasStrokeWidth(data: ShapeData): data is WithStrokeWidth {
   switch (data.type) {
@@ -49,6 +50,11 @@ export function hasFont(data: ShapeData): data is WithFont {
   }
 }
 
+/** Textfarbe ist nur bei Notizzetteln separat wählbar (bei `text` ist `color` bereits die Textfarbe). */
+export function hasTextColor(data: ShapeData): data is WithTextColor {
+  return data.type === 'sticky-note'
+}
+
 function buildUpdates<T extends ShapeData>(
   objects: CanvasObjectDto[],
   predicate: (data: ShapeData) => data is T,
@@ -66,6 +72,10 @@ function buildUpdates<T extends ShapeData>(
 /** Farbe gilt für jeden Shape-Typ, daher keine Filterung nötig. */
 export function withColor(objects: CanvasObjectDto[], color: string): ObjectUpdateEntry[] {
   return objects.map((o) => ({ id: o.id, data: { ...o.data, color } }))
+}
+
+export function withTextColor(objects: CanvasObjectDto[], textColor: string): ObjectUpdateEntry[] {
+  return buildUpdates(objects, hasTextColor, (d) => ({ ...d, textColor }))
 }
 
 export function withStrokeWidth(objects: CanvasObjectDto[], strokeWidth: number): ObjectUpdateEntry[] {

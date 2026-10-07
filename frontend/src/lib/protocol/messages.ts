@@ -83,7 +83,7 @@ export interface ArrowShapeData {
 
 export interface StickyNoteShapeData {
   type: 'sticky-note'
-  /** Hintergrundfarbe des Zettels (Textfarbe ist bewusst fest, siehe Backend-Kommentar). */
+  /** Hintergrundfarbe des Zettels. */
   color: string
   x: number
   y: number
@@ -96,6 +96,8 @@ export interface StickyNoteShapeData {
   italic: boolean
   underline: boolean
   strikethrough: boolean
+  /** Separate Textfarbe (unabhängig von der Hintergrundfarbe `color`). */
+  textColor: string
 }
 
 export type ShapeData =

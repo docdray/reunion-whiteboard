@@ -23,6 +23,7 @@ export interface DrawSettings {
   underline: boolean
   strikethrough: boolean
   doubleHeaded: boolean
+  textColor: string
 }
 
 export interface DragGeometry {
@@ -168,6 +169,7 @@ export function stickyNoteFromArea(area: RectArea, content: string, settings: Dr
     italic: settings.italic,
     underline: settings.underline,
     strikethrough: settings.strikethrough,
+    textColor: settings.textColor,
   }
 }
 

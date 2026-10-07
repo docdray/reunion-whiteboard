@@ -106,6 +106,7 @@ describe('shapeBounds', () => {
       italic: false,
       underline: false,
       strikethrough: false,
+      textColor: '#1a1a1a',
     }
     expect(shapeBounds(data)).toEqual({ minX: 5, minY: 5, maxX: 165, maxY: 125 })
   })
@@ -221,6 +222,7 @@ describe('translateShapeData', () => {
       italic: false,
       underline: false,
       strikethrough: false,
+      textColor: '#1a1a1a',
     }
     const moved = translateShapeData(note, 4, 4) as StickyNoteShapeData
     expect(moved).toMatchObject({ x: 5, y: 5, width: 160, height: 120, content: 'Notiz' })

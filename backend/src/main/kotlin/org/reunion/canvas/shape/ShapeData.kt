@@ -91,8 +91,8 @@ data class TextShapeData(
 /**
  * Notizzettel (Sticky Note): Rechteck mit Hintergrundfarbe + Text, wie ein Post-it.
  * `color` wird hier als Hintergrundfarbe interpretiert (kein separates `backgroundColor`-Feld,
- * da das Interface ohnehin `color` verlangt). Die Textfarbe ist bewusst FEST (siehe Frontend-
- * Rendering) statt konfigurierbar, damit der Text auf jeder Hintergrundfarbe lesbar bleibt.
+ * da das Interface ohnehin `color` verlangt). `textColor` ist separat wählbar (Default `#1a1a1a`
+ * für Rückwärtskompatibilität mit vor dieser Änderung persistierten Datensätzen ohne dieses Feld).
  */
 data class StickyNoteShapeData(
     override val color: String,
@@ -107,6 +107,7 @@ data class StickyNoteShapeData(
     val italic: Boolean,
     val underline: Boolean,
     val strikethrough: Boolean,
+    val textColor: String = "#1a1a1a",
 ) : ShapeData
 
 /** Discriminator value used both as the JSON "type" and as CanvasObjectEntity.type. */

@@ -4,6 +4,7 @@ import {
   hasFilled,
   hasFont,
   hasStrokeWidth,
+  hasTextColor,
   withBold,
   withColor,
   withFilled,
@@ -12,6 +13,7 @@ import {
   withItalic,
   withStrikethrough,
   withStrokeWidth,
+  withTextColor,
   withUnderline,
 } from './selectionStyleEdit'
 
@@ -73,6 +75,7 @@ function stickyObj(id: string): CanvasObjectDto {
       italic: false,
       underline: false,
       strikethrough: false,
+      textColor: '#1a1a1a',
     },
   }
 }
@@ -151,5 +154,27 @@ describe('font-related updates', () => {
 
   it('returns an empty list when no selected object supports font fields', () => {
     expect(withBold([rectObj('a'), lineObj('b')], true)).toEqual([])
+  })
+})
+
+describe('withTextColor', () => {
+  it('only updates sticky-note, not text (where color is already the text color)', () => {
+    expect(hasTextColor(stickyObj('a').data)).toBe(true)
+    expect(hasTextColor(textObj('a').data)).toBe(false)
+
+    const objects = [stickyObj('a'), textObj('b'), rectObj('c')]
+    const updates = withTextColor(objects, '#ffffff')
+    expect(updates.map((u) => u.id)).toEqual(['a'])
+    expect((updates[0].data as { textColor: string }).textColor).toBe('#ffffff')
+  })
+
+  it('leaves the background color and all other fields unchanged', () => {
+    const original = stickyObj('a')
+    const [update] = withTextColor([original], '#ffffff')
+    expect(update.data).toEqual({ ...original.data, textColor: '#ffffff' })
+  })
+
+  it('returns an empty list when no sticky-note is selected', () => {
+    expect(withTextColor([rectObj('a'), textObj('b')], '#ffffff')).toEqual([])
   })
 })

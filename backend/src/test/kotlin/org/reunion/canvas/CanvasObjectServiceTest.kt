@@ -1,5 +1,6 @@
 package org.reunion.canvas
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
 import jakarta.transaction.Transactional
@@ -33,6 +34,9 @@ class CanvasObjectServiceTest {
     @Inject
     lateinit var canvasRepository: CanvasRepository
 
+    @Inject
+    lateinit var objectMapper: ObjectMapper
+
     @Transactional
     fun createCanvas(): UUID {
         val entity = CanvasEntity().apply {
@@ -62,6 +66,7 @@ class CanvasObjectServiceTest {
                 color = "#fff59d", x = 4.0, y = 4.0, width = 160.0, height = 120.0, content = "Notiz",
                 fontFamily = "Arial", fontSize = 14.0,
                 bold = false, italic = true, underline = false, strikethrough = true,
+                textColor = "#003366",
             ),
         )
     }
@@ -77,6 +82,20 @@ class CanvasObjectServiceTest {
         val loaded = canvasObjectService.listForCanvas(canvasId)
         assertEquals(1, loaded.size)
         assertEquals(shape, loaded.first().data)
+    }
+
+    @Test
+    fun `sticky-note json without textColor deserializes with default text color for backward compatibility`() {
+        val legacyJson = """
+            {"type":"sticky-note","color":"#fff59d","x":1.0,"y":2.0,"width":160.0,"height":120.0,
+             "content":"Alte Notiz","fontFamily":"Arial","fontSize":14.0,
+             "bold":false,"italic":false,"underline":false,"strikethrough":false}
+        """.trimIndent()
+
+        val deserialized = objectMapper.readValue(legacyJson, ShapeData::class.java)
+
+        assertEquals(StickyNoteShapeData::class.java, deserialized.javaClass)
+        assertEquals("#1a1a1a", (deserialized as StickyNoteShapeData).textColor)
     }
 
     @Test

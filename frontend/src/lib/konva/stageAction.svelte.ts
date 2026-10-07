@@ -12,8 +12,6 @@ const GRID_COLOR = '#e3e3e3'
 
 type VisualNode = Konva.Shape | Konva.Group
 
-/** Feste Textfarbe für Notizzettel (siehe Backend-Kommentar zu StickyNoteShapeData) — bleibt auf jeder Hintergrundfarbe lesbar. */
-const STICKY_NOTE_TEXT_COLOR = '#1a1a1a'
 const STICKY_NOTE_PADDING = 10
 
 const SELECTION_COLOR = '#4a90d9'
@@ -184,7 +182,7 @@ function stickyNoteTextConfig(data: StickyNoteShapeData): Record<string, unknown
     text: data.content,
     fontFamily: data.fontFamily,
     fontSize: data.fontSize,
-    fill: STICKY_NOTE_TEXT_COLOR,
+    fill: data.textColor,
     fontStyle,
     textDecoration,
     wrap: 'word',

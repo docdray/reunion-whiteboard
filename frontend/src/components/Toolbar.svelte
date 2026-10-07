@@ -7,6 +7,7 @@
     hasFilled,
     hasFont,
     hasStrokeWidth,
+    hasTextColor,
     withBold,
     withColor,
     withFilled,
@@ -15,8 +16,10 @@
     withItalic,
     withStrikethrough,
     withStrokeWidth,
+    withTextColor,
     withUnderline,
   } from '../lib/interaction/selectionStyleEdit'
+  import { pickRepresentativeObject, toolStoreValuesFrom } from '../lib/interaction/selectionToToolStore'
   import ModeSwitch from './ModeSwitch.svelte'
   import ToolPicker from './ToolPicker.svelte'
   import ColorPicker from './ColorPicker.svelte'
@@ -56,6 +59,10 @@
     (isDraw && (toolStore.tool === 'text' || toolStore.tool === 'sticky-note')) ||
       (isSelect && selectedObjects.some((o) => hasFont(o.data))),
   )
+  const showTextColorPicker = $derived(
+    (isDraw && toolStore.tool === 'sticky-note') ||
+      (isSelect && selectedObjects.some((o) => hasTextColor(o.data))),
+  )
   const showDoubleHeadedToggle = $derived(isDraw && toolStore.tool === 'arrow')
   const filledToggleLabel = $derived(toolStore.tool === 'arrow' ? 'Pfeilspitze gefüllt' : 'Gefüllt')
 
@@ -64,7 +71,12 @@
   }
 
   function handleColorChange(color: string): void {
+    toolStore.setColor(color)
     if (isSelect) applyToSelection(withColor(selectedObjects, color))
+  }
+  function handleTextColorChange(textColor: string): void {
+    toolStore.setTextColor(textColor)
+    if (isSelect) applyToSelection(withTextColor(selectedObjects, textColor))
   }
   function handleStrokeWidthChange(strokeWidth: number): void {
     if (isSelect) applyToSelection(withStrokeWidth(selectedObjects, strokeWidth))
@@ -90,6 +102,27 @@
   function handleStrikethroughChange(strikethrough: boolean): void {
     if (isSelect) applyToSelection(withStrikethrough(selectedObjects, strikethrough))
   }
+
+  // Synchronisiert die Toolbar-Werte auf die Eigenschaften des zuletzt selektierten Objekts, statt
+  // stur den zuletzt manuell gewählten Wert zu behalten (Gegenrichtung zu applyToSelection oben —
+  // schreibt direkt in toolStore, OHNE über die onChange-Handler zu gehen, also keine Rückkopplung).
+  $effect(() => {
+    const selectedIds = selectionStore.selectedIds
+    if (toolStore.mode !== 'select' || selectedIds.size === 0) return
+    const representative = pickRepresentativeObject(canvasStore.objects, selectedIds)
+    if (!representative) return
+    const values = toolStoreValuesFrom(representative.data)
+    toolStore.setColor(values.color)
+    if (values.strokeWidth !== undefined) toolStore.setStrokeWidth(values.strokeWidth)
+    if (values.filled !== undefined) toolStore.setFilled(values.filled)
+    if (values.fontFamily !== undefined) toolStore.setFontFamily(values.fontFamily)
+    if (values.fontSize !== undefined) toolStore.setFontSize(values.fontSize)
+    if (values.bold !== undefined) toolStore.setBold(values.bold)
+    if (values.italic !== undefined) toolStore.setItalic(values.italic)
+    if (values.underline !== undefined) toolStore.setUnderline(values.underline)
+    if (values.strikethrough !== undefined) toolStore.setStrikethrough(values.strikethrough)
+    if (values.textColor !== undefined) toolStore.setTextColor(values.textColor)
+  })
 </script>
 
 <div class="toolbar">
@@ -106,7 +139,10 @@
   {/if}
 
   {#if showColorPicker}
-    <ColorPicker onColorChange={handleColorChange} />
+    <ColorPicker value={toolStore.color} label="Farbauswahl" onChange={handleColorChange} />
+  {/if}
+  {#if showTextColorPicker}
+    <ColorPicker value={toolStore.textColor} label="Textfarbe" onChange={handleTextColorChange} />
   {/if}
   {#if showStrokeWidthSelector}
     <StrokeWidthSelector onStrokeWidthChange={handleStrokeWidthChange} />
