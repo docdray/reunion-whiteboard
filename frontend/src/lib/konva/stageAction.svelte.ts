@@ -419,6 +419,7 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
 
     $effect(() => {
       const selected = selectionStore.selectedIds
+      const moveDelta = selectionStore.moveDelta
       const resizePreview = selectionStore.resizePreview
       const hoveredId = selectionStore.hoveredHandleId
       const scale = viewportStore.scale
@@ -429,7 +430,8 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
         const [id] = selected
         const obj = canvasStore.objects.find((o) => o.id === id)
         if (obj) {
-          const data = resizePreview && resizePreview.id === id ? resizePreview.data : obj.data
+          let data = resizePreview && resizePreview.id === id ? resizePreview.data : obj.data
+          if (moveDelta) data = translateShapeData(data, moveDelta.dx, moveDelta.dy)
           handles = handlePositionsFor(data)
         }
       }

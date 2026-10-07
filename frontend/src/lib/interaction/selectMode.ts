@@ -1,5 +1,5 @@
 import type { CanvasObjectDto, ObjectUpdateEntry, PointDto } from '../protocol/messages'
-import { boundsFromRect, boundsIntersect, containsPoint, shapeBounds, translateShapeData } from '../geometry/shapeBounds'
+import { boundsFromRect, boundsIntersect, distance, hitsShapeAt, shapeBounds, translateShapeData } from '../geometry/shapeBounds'
 
 export interface MarqueeRect {
   x: number
@@ -23,14 +23,14 @@ const DRAG_THRESHOLD = 2
 
 type DragState =
   | { kind: 'none' }
-  | { kind: 'marquee'; start: PointDto }
+  | { kind: 'marquee'; start: PointDto; additive: boolean }
   | { kind: 'move'; start: PointDto; snapshot: CanvasObjectDto[] }
 
 /** Liefert das oberste (zuletzt erzeugte) Objekt unter `point`, oder `null`. Von Klick-Selektion und Doppelklick-Textbearbeitung geteilt. */
 export function hitTest(objects: CanvasObjectDto[], point: PointDto): CanvasObjectDto | null {
   for (let i = objects.length - 1; i >= 0; i--) {
     const obj = objects[i]
-    if (containsPoint(shapeBounds(obj.data), point)) return obj
+    if (hitsShapeAt(obj.data, point)) return obj
   }
   return null
 }
@@ -42,10 +42,6 @@ function normalizeRect(a: PointDto, b: PointDto): MarqueeRect {
     width: Math.abs(b.x - a.x),
     height: Math.abs(b.y - a.y),
   }
-}
-
-function distance(a: PointDto, b: PointDto): number {
-  return Math.hypot(b.x - a.x, b.y - a.y)
 }
 
 /**
@@ -74,7 +70,7 @@ export class SelectInteraction {
       return
     }
 
-    this.state = { kind: 'marquee', start: point }
+    this.state = { kind: 'marquee', start: point, additive }
     this.callbacks.onMarqueeChange({ x: point.x, y: point.y, width: 0, height: 0 })
   }
 
@@ -99,7 +95,7 @@ export class SelectInteraction {
         const rectBounds = boundsFromRect(rect)
         const objects = this.callbacks.getObjects()
         const hits = objects.filter((o) => boundsIntersect(shapeBounds(o.data), rectBounds))
-        this.callbacks.select(hits.map((o) => o.id), false)
+        this.callbacks.select(hits.map((o) => o.id), this.state.additive)
       } else {
         this.callbacks.select([], false)
       }
@@ -113,11 +109,17 @@ export class SelectInteraction {
       if (dragged && this.state.snapshot.length > 0) {
         const dx = point.x - this.state.start.x
         const dy = point.y - this.state.start.y
-        const updates: ObjectUpdateEntry[] = this.state.snapshot.map((o) => ({
+        // Basis für den finalen Commit ist der AKTUELLE Objekt-Stand (nicht der beim
+        // pointerDown erfasste `snapshot`), damit nicht-geometrische Felder (Farbe,
+        // Strichstärke, ...), die währenddessen von anderen Nutzern geändert wurden,
+        // nicht überschrieben werden. Der Snapshot bestimmt nur WELCHE Objekte bewegt wurden.
+        const movingIds = new Set(this.state.snapshot.map((o) => o.id))
+        const current = this.callbacks.getObjects().filter((o) => movingIds.has(o.id))
+        const updates: ObjectUpdateEntry[] = current.map((o) => ({
           id: o.id,
           data: translateShapeData(o.data, dx, dy),
         }))
-        this.callbacks.onMoveCommit(updates)
+        if (updates.length > 0) this.callbacks.onMoveCommit(updates)
       }
       this.callbacks.onMovePreviewClear()
       this.reset()

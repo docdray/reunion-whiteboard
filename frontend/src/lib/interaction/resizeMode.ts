@@ -1,4 +1,5 @@
 import type { CanvasObjectDto, PointDto, ShapeData } from '../protocol/messages'
+import { distance } from '../geometry/shapeBounds'
 
 export interface HandlePosition {
   id: string
@@ -10,10 +11,6 @@ export interface HandlePosition {
 export const HANDLE_SIZE_PX = 8
 /** Zusätzlicher Toleranz-Rand fürs Treffen eines Griffs, in Bildschirm-Pixeln. */
 const HANDLE_HIT_PADDING_PX = 5
-
-function distance(a: PointDto, b: PointDto): number {
-  return Math.hypot(b.x - a.x, b.y - a.y)
-}
 
 /**
  * Liefert die Positionen der Anfasspunkte für einen Shape-Typ, oder ein leeres Array
@@ -191,8 +188,14 @@ export class ResizeInteraction {
 
   pointerUp(point: PointDto): void {
     if (!this.active) return
-    const updated = resizeShape(this.active.original, this.active.handleId, point)
-    this.callbacks.onCommit(this.active.id, updated)
+    // Basis für den finalen Commit ist der AKTUELLE Objekt-Stand (nicht der beim pointerDown
+    // erfasste `original`-Snapshot), damit nicht-geometrische Felder (Farbe, Strichstärke, ...),
+    // die währenddessen von anderen Nutzern geändert wurden, nicht überschrieben werden.
+    const current = this.callbacks.getObjects().find((o) => o.id === this.active!.id)
+    if (current) {
+      const updated = resizeShape(current.data, this.active.handleId, point)
+      this.callbacks.onCommit(this.active.id, updated)
+    }
     this.callbacks.onPreviewClear()
     this.active = null
   }

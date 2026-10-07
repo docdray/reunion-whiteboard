@@ -134,6 +134,37 @@ describe('SelectInteraction', () => {
     expect(byId.b).toMatchObject({ x: 30, y: 23 })
   })
 
+  it('Verschieben committed den AKTUELLEN Objekt-Stand, nicht den Snapshot von pointerDown (überschreibt keine gleichzeitige fremde Änderung)', () => {
+    const objects = [rect('a', 0, 0, 0, 10, 10)]
+    const { interaction, onMoveCommit } = createHarness(objects)
+
+    interaction.pointerDown({ x: 5, y: 5 }, false)
+    // Simuliert eine gleichzeitige Änderung durch einen anderen Nutzer (z.B. Farbwechsel über die Toolbar) während des Ziehens.
+    objects[0] = { ...objects[0], data: { ...(objects[0].data as RectShapeData), color: '#ff0000' } }
+    interaction.pointerMove({ x: 15, y: 8 })
+    interaction.pointerUp({ x: 15, y: 8 })
+
+    expect(onMoveCommit).toHaveBeenCalledTimes(1)
+    const updates = onMoveCommit.mock.calls[0][0] as Array<{ id: string; data: RectShapeData }>
+    expect(updates[0].data.color).toBe('#ff0000')
+    expect(updates[0].data).toMatchObject({ x: 10, y: 3 })
+  })
+
+  it('Strg+Ziehen eines Auswahlrechtecks erweitert die bestehende Selektion statt sie zu ersetzen', () => {
+    const objects = [rect('a', 0, 0, 0, 10, 10), rect('b', 1, 20, 20, 10, 10), rect('c', 2, 200, 200, 10, 10)]
+    const { interaction, getSelected } = createHarness(objects)
+
+    interaction.pointerDown({ x: 5, y: 5 }, false)
+    interaction.pointerUp({ x: 5, y: 5 })
+    expect(getSelected()).toEqual(new Set(['a']))
+
+    interaction.pointerDown({ x: 190, y: 190 }, true)
+    interaction.pointerMove({ x: 215, y: 215 })
+    interaction.pointerUp({ x: 215, y: 215 })
+
+    expect(getSelected()).toEqual(new Set(['a', 'c']))
+  })
+
   it('reiner Klick ohne Ziehen auf einem Objekt löst keinen Move-Commit aus', () => {
     const objects = [rect('a', 0, 0, 0, 10, 10)]
     const { interaction, onMoveCommit } = createHarness(objects)

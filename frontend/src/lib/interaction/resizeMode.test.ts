@@ -247,6 +247,29 @@ describe('ResizeInteraction', () => {
     expect(interaction.isActive).toBe(false)
   })
 
+  it('pointerUp committed den AKTUELLEN Objekt-Stand, nicht den bei pointerDown erfassten `original`-Snapshot (überschreibt keine gleichzeitige fremde Änderung)', () => {
+    const objects: CanvasObjectDto[] = [{ id: 'r1', type: 'rect', sequence: 1, data: { ...rect } }]
+    const onCommit = vi.fn()
+    const interaction = new ResizeInteraction({
+      getObjects: () => objects,
+      getSelectedIds: () => new Set(['r1']),
+      getScale: () => 1,
+      onPreview: vi.fn(),
+      onPreviewClear: vi.fn(),
+      onCommit,
+    })
+
+    expect(interaction.pointerDown({ x: 110, y: 60 })).toBe(true) // 'se'
+    // Simuliert eine gleichzeitige Änderung durch einen anderen Nutzer (z.B. Farbwechsel über die Toolbar) während des Ziehens.
+    objects[0] = { ...objects[0], data: { ...(objects[0].data as RectShapeData), color: '#ff0000' } }
+
+    interaction.pointerUp({ x: 200, y: 150 })
+    expect(onCommit).toHaveBeenCalledWith(
+      'r1',
+      expect.objectContaining({ x: 10, y: 10, width: 190, height: 140, color: '#ff0000' }),
+    )
+  })
+
   it('hoveredHandle liefert die Griff-ID ohne einen Drag zu starten', () => {
     const interaction = new ResizeInteraction({
       getObjects: makeObjects,

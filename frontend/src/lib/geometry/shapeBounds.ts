@@ -94,6 +94,67 @@ export function containsPoint(bounds: Bounds, point: PointDto): boolean {
   return point.x >= bounds.minX && point.x <= bounds.maxX && point.y >= bounds.minY && point.y <= bounds.maxY
 }
 
+export function distance(a: PointDto, b: PointDto): number {
+  return Math.hypot(b.x - a.x, b.y - a.y)
+}
+
+function pointToSegmentDistance(p: PointDto, a: PointDto, b: PointDto): number {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared === 0) return distance(p, a)
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared))
+  return distance(p, { x: a.x + t * dx, y: a.y + t * dy })
+}
+
+function distanceToPolyline(p: PointDto, points: PointDto[]): number {
+  if (points.length === 0) return Infinity
+  if (points.length === 1) return distance(p, points[0])
+  let min = Infinity
+  for (let i = 0; i < points.length - 1; i++) {
+    const d = pointToSegmentDistance(p, points[i], points[i + 1])
+    if (d < min) min = d
+  }
+  return min
+}
+
+/** Toleranz fürs Treffen dünner Formen, abgeleitet von der eigenen Strichstärke — analog zum Radierer-Toleranzradius (eraserMode.ts). */
+function strokeHitTolerance(strokeWidth: number): number {
+  return Math.max(4, strokeWidth * 2)
+}
+
+/**
+ * Minimaler Abstand von `point` zum tatsächlichen Linienverlauf von `data`, oder `null`
+ * wenn der Typ keine sinnvolle "Strich"-Geometrie hat (dann gilt die normale Bounding-Box-Prüfung).
+ * Nur für die flächenlosen Typen freehand/line/arrow definiert.
+ */
+export function distanceToStrokeShape(data: ShapeData, point: PointDto): number | null {
+  switch (data.type) {
+    case 'line':
+    case 'arrow':
+      return pointToSegmentDistance(point, { x: data.x1, y: data.y1 }, { x: data.x2, y: data.y2 })
+    case 'freehand':
+      return distanceToPolyline(point, data.points)
+    default:
+      return null
+  }
+}
+
+/**
+ * Präzises Treffer-Testing für einen Punkt gegen ein Objekt: bei freehand/line/arrow wird der
+ * tatsächliche Linienverlauf (mit kleiner, strichstärkenabhängiger Toleranz) geprüft statt nur
+ * der (bei diagonalen Linien stark übergroßen) Bounding-Box; alle anderen Typen bleiben bei der
+ * bisherigen, bewusst großzügigen Bounding-Box-Prüfung (auch bei ungefüllten Formen).
+ */
+export function hitsShapeAt(data: ShapeData, point: PointDto): boolean {
+  const strokeDistance = distanceToStrokeShape(data, point)
+  if (strokeDistance !== null) {
+    const strokeWidth = data.type === 'freehand' || data.type === 'line' || data.type === 'arrow' ? data.strokeWidth : 0
+    return strokeDistance <= strokeHitTolerance(strokeWidth)
+  }
+  return containsPoint(shapeBounds(data), point)
+}
+
 /** Verschiebt ShapeData um (dx, dy) in Weltkoordinaten; liefert eine neue Instanz desselben Typs. */
 export function translateShapeData(data: ShapeData, dx: number, dy: number): ShapeData {
   switch (data.type) {

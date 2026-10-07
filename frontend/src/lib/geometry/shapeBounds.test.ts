@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { boundsFromRect, boundsIntersect, containsPoint, paddedBoundsForSelection, shapeBounds, translateShapeData } from './shapeBounds'
+import {
+  boundsFromRect,
+  boundsIntersect,
+  containsPoint,
+  distance,
+  distanceToStrokeShape,
+  hitsShapeAt,
+  paddedBoundsForSelection,
+  shapeBounds,
+  translateShapeData,
+} from './shapeBounds'
 import type {
   ArrowShapeData,
   CircleShapeData,
@@ -226,5 +236,72 @@ describe('translateShapeData', () => {
     }
     const moved = translateShapeData(note, 4, 4) as StickyNoteShapeData
     expect(moved).toMatchObject({ x: 5, y: 5, width: 160, height: 120, content: 'Notiz' })
+  })
+})
+
+describe('distance', () => {
+  it('berechnet den euklidischen Abstand zweier Punkte', () => {
+    expect(distance({ x: 0, y: 0 }, { x: 3, y: 4 })).toBe(5)
+  })
+})
+
+describe('distanceToStrokeShape', () => {
+  it('liefert den Abstand zum Liniensegment bei line/arrow', () => {
+    const line: LineShapeData = { type: 'line', color: '#000', strokeWidth: 2, x1: 0, y1: 0, x2: 100, y2: 0 }
+    expect(distanceToStrokeShape(line, { x: 50, y: 0 })).toBe(0)
+    expect(distanceToStrokeShape(line, { x: 50, y: 10 })).toBe(10)
+    // Außerhalb des Segments wird zum nächsten Endpunkt gemessen, nicht zur unendlichen Gerade.
+    expect(distanceToStrokeShape(line, { x: -10, y: 0 })).toBe(10)
+  })
+
+  it('liefert den minimalen Abstand zu jedem Segment bei freehand', () => {
+    const freehand: FreehandShapeData = {
+      type: 'freehand',
+      color: '#000',
+      strokeWidth: 2,
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+      ],
+    }
+    expect(distanceToStrokeShape(freehand, { x: 100, y: 50 })).toBe(0)
+    expect(distanceToStrokeShape(freehand, { x: 110, y: 50 })).toBe(10)
+  })
+
+  it('liefert null für Typen ohne Linien-Geometrie (bleiben bei der Bounding-Box-Prüfung)', () => {
+    const rect: RectShapeData = { type: 'rect', color: '#000', strokeWidth: 1, filled: false, x: 0, y: 0, width: 10, height: 10 }
+    expect(distanceToStrokeShape(rect, { x: 5, y: 5 })).toBeNull()
+  })
+})
+
+describe('hitsShapeAt', () => {
+  it('trifft eine diagonale Linie NICHT irgendwo in ihrer Bounding-Box, nur nahe am tatsächlichen Verlauf', () => {
+    const diagonal: LineShapeData = { type: 'line', color: '#000', strokeWidth: 2, x1: 0, y1: 0, x2: 100, y2: 100 }
+    // Ecke der Bounding-Box, weit entfernt von der sichtbaren Diagonale.
+    expect(hitsShapeAt(diagonal, { x: 90, y: 10 })).toBe(false)
+    // Direkt auf der Linie.
+    expect(hitsShapeAt(diagonal, { x: 50, y: 50 })).toBe(true)
+  })
+
+  it('berücksichtigt die Strichstärke als Toleranz bei line/arrow', () => {
+    const thick: ArrowShapeData = {
+      type: 'arrow',
+      color: '#000',
+      strokeWidth: 10,
+      filled: true,
+      doubleHeaded: false,
+      x1: 0,
+      y1: 0,
+      x2: 100,
+      y2: 0,
+    }
+    expect(hitsShapeAt(thick, { x: 50, y: 15 })).toBe(true)
+    expect(hitsShapeAt(thick, { x: 50, y: 40 })).toBe(false)
+  })
+
+  it('bleibt für rect/circle/ellipse/sticky-note/text bei der bisherigen Bounding-Box-Prüfung', () => {
+    const rect: RectShapeData = { type: 'rect', color: '#000', strokeWidth: 1, filled: false, x: 0, y: 0, width: 100, height: 100 }
+    expect(hitsShapeAt(rect, { x: 50, y: 50 })).toBe(true)
   })
 })

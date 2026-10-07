@@ -11,6 +11,9 @@ import type {
   StickyNoteShapeData,
   TextShapeData,
 } from '../protocol/messages'
+import { distance } from './shapeBounds'
+
+export { distance }
 
 export interface DrawSettings {
   color: string
@@ -31,10 +34,6 @@ export interface DragGeometry {
   end: PointDto
   /** All points collected during the drag, used for freehand. Falls back to [start, end] if omitted. */
   points?: PointDto[]
-}
-
-export function distance(a: PointDto, b: PointDto): number {
-  return Math.hypot(b.x - a.x, b.y - a.y)
 }
 
 export function freehandFromDrag(geometry: DragGeometry, settings: DrawSettings): FreehandShapeData {

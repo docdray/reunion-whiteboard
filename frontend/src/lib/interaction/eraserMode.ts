@@ -1,5 +1,5 @@
 import type { CanvasObjectDto, PointDto } from '../protocol/messages'
-import { boundsFromRect, boundsIntersect, shapeBounds } from '../geometry/shapeBounds'
+import { boundsFromRect, boundsIntersect, distanceToStrokeShape, shapeBounds } from '../geometry/shapeBounds'
 
 export interface EraserInteractionCallbacks {
   getObjects: () => CanvasObjectDto[]
@@ -54,9 +54,14 @@ export class EraserInteraction {
       width: radius * 2,
       height: radius * 2,
     })
-    const hits = this.callbacks
-      .getObjects()
-      .filter((o) => !this.erasedInStroke.has(o.id) && boundsIntersect(shapeBounds(o.data), cursorBounds))
+    const hits = this.callbacks.getObjects().filter((o) => {
+      if (this.erasedInStroke.has(o.id)) return false
+      // Bei Linie/Pfeil/Freihand gegen den tatsächlichen Linienverlauf prüfen statt gegen die
+      // (bei diagonalen Formen stark übergroße) Bounding-Box — sonst radiert man "durch die Luft".
+      const strokeDistance = distanceToStrokeShape(o.data, point)
+      if (strokeDistance !== null) return strokeDistance <= radius
+      return boundsIntersect(shapeBounds(o.data), cursorBounds)
+    })
     if (hits.length === 0) return
     for (const hit of hits) this.erasedInStroke.add(hit.id)
     this.callbacks.onErase(hits.map((o) => o.id))

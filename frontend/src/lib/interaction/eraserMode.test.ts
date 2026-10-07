@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import { EraserInteraction, eraserRadius } from './eraserMode'
-import type { CanvasObjectDto, RectShapeData } from '../protocol/messages'
+import type { CanvasObjectDto, LineShapeData, RectShapeData } from '../protocol/messages'
 
 function rect(id: string, sequence: number, x: number, y: number, width: number, height: number): CanvasObjectDto {
   const data: RectShapeData = { type: 'rect', color: '#000', strokeWidth: 1, filled: false, x, y, width, height }
   return { id, type: 'rect', sequence, data }
+}
+
+function diagonalLine(id: string, sequence: number): CanvasObjectDto {
+  const data: LineShapeData = { type: 'line', color: '#000', strokeWidth: 1, x1: 0, y1: 0, x2: 100, y2: 100 }
+  return { id, type: 'line', sequence, data }
 }
 
 function createHarness(objects: CanvasObjectDto[], radius = 8) {
@@ -63,6 +68,17 @@ describe('EraserInteraction', () => {
     const { interaction, onErase } = createHarness(objects)
     interaction.pointerMove({ x: 5, y: 5 })
     expect(onErase).not.toHaveBeenCalled()
+  })
+
+  it('trifft eine diagonale Linie nicht in der leeren Ecke ihrer Bounding-Box, nur nahe am tatsächlichen Verlauf', () => {
+    const objects = [diagonalLine('a', 0)]
+    const { interaction, onErase } = createHarness(objects, 8)
+    interaction.pointerDown({ x: 90, y: 10 }) // Ecke der Bounding-Box, weit von der Diagonale entfernt
+    expect(onErase).not.toHaveBeenCalled()
+
+    interaction.pointerUp()
+    interaction.pointerDown({ x: 50, y: 50 }) // auf der Diagonale
+    expect(onErase).toHaveBeenCalledWith(['a'])
   })
 
   describe('eraserRadius', () => {
