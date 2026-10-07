@@ -13,6 +13,7 @@
   import { shapeBounds, unionBounds } from '../lib/geometry/shapeBounds'
   import { DrawInteraction } from '../lib/interaction/drawMode'
   import { SelectInteraction } from '../lib/interaction/selectMode'
+  import { ResizeInteraction } from '../lib/interaction/resizeMode'
   import { EraserInteraction, eraserRadius } from '../lib/interaction/eraserMode'
   import { buildContentUpdate, findEditableTextObject } from '../lib/interaction/editTextMode'
   import type { ObjectUpdateEntry } from '../lib/protocol/messages'
@@ -79,6 +80,18 @@
       socket?.send({ type: 'object-update', objects: updates })
     },
     onMarqueeChange: (rect) => selectionStore.setMarqueeRect(rect),
+  })
+
+  const resizeInteraction = new ResizeInteraction({
+    getObjects: () => canvasStore.objects,
+    getSelectedIds: () => selectionStore.selectedIds,
+    getScale: () => viewportStore.scale,
+    onPreview: (id, data) => selectionStore.setResizePreview(id, data),
+    onPreviewClear: () => selectionStore.clearResizePreview(),
+    onCommit: (id, data) => {
+      canvasStore.updateData(id, data)
+      socket?.send({ type: 'object-update', objects: [{ id, data }] })
+    },
   })
 
   function isEditableTarget(target: EventTarget | null): boolean {
@@ -174,6 +187,7 @@
     }
 
     if (toolStore.mode === 'select') {
+      if (resizeInteraction.pointerDown(world)) return
       selectInteraction.pointerDown(world, event.ctrlKey || event.metaKey)
       return
     }
@@ -206,6 +220,11 @@
     }
 
     if (toolStore.mode === 'select') {
+      if (resizeInteraction.isActive) {
+        resizeInteraction.pointerMove(world)
+        return
+      }
+      selectionStore.setHoveredHandle(resizeInteraction.hoveredHandle(world))
       selectInteraction.pointerMove(world)
       return
     }
@@ -258,6 +277,10 @@
     }
 
     if (toolStore.mode === 'select') {
+      if (resizeInteraction.isActive) {
+        resizeInteraction.pointerUp(world)
+        return
+      }
       selectInteraction.pointerUp(world)
       return
     }
@@ -293,7 +316,10 @@
   onpointerdown={handlePointerDown}
   onpointermove={handlePointerMove}
   onpointerup={handlePointerUp}
-  onpointerleave={() => (eraserPointer = null)}
+  onpointerleave={() => {
+    eraserPointer = null
+    selectionStore.setHoveredHandle(null)
+  }}
   ondblclick={handleDoubleClick}
 ></div>
 

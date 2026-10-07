@@ -6,6 +6,7 @@ import { selectionStore } from '../stores/selectionStore.svelte'
 import { paddedBoundsForSelection, translateShapeData } from '../geometry/shapeBounds'
 import { arrowHeadWings } from '../geometry/arrowHead'
 import { computeGridLines } from '../geometry/gridLines'
+import { handlePositionsFor, HANDLE_SIZE_PX } from '../interaction/resizeMode'
 import type { ArrowShapeData, ShapeData, StickyNoteShapeData } from '../protocol/messages'
 
 const GRID_COLOR = '#e3e3e3'
@@ -15,6 +16,8 @@ type VisualNode = Konva.Shape | Konva.Group
 const STICKY_NOTE_PADDING = 10
 
 const SELECTION_COLOR = '#4a90d9'
+const HANDLE_FILL = '#ffffff'
+const HANDLE_HOVER_FILL = SELECTION_COLOR
 
 function configFor(data: ShapeData): Record<string, unknown> {
   switch (data.type) {
@@ -317,9 +320,13 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
   const selectionLayer = new Konva.Layer({ listening: false })
   stage.add(selectionLayer)
 
+  const handlesLayer = new Konva.Layer({ listening: false })
+  stage.add(handlesLayer)
+
   const nodesById = new Map<string, VisualNode>()
   const previewNodesByKey = new Map<string, VisualNode>()
   const selectionRectsById = new Map<string, Konva.Rect>()
+  const handleRectsById = new Map<string, Konva.Rect>()
 
   function applyPreviewStyle(node: VisualNode): void {
     node.opacity(0.6)
@@ -348,17 +355,21 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
       layer.batchDraw()
       gridLayer.batchDraw()
       selectionLayer.batchDraw()
+      handlesLayer.batchDraw()
     })
 
     $effect(() => {
       const current = canvasStore.objects
       const selected = selectionStore.selectedIds
       const moveDelta = selectionStore.moveDelta
+      const resizePreview = selectionStore.resizePreview
       const seen = new Set<string>()
       for (const obj of current) {
         seen.add(obj.id)
         const isSelected = selected.has(obj.id)
-        const data = isSelected && moveDelta ? translateShapeData(obj.data, moveDelta.dx, moveDelta.dy) : obj.data
+        let data = obj.data
+        if (isSelected && moveDelta) data = translateShapeData(data, moveDelta.dx, moveDelta.dy)
+        if (resizePreview && resizePreview.id === obj.id) data = resizePreview.data
         syncNode(layer, nodesById, obj.id, data, () => {})
 
         if (isSelected) {
@@ -404,6 +415,56 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
       }
       layer.batchDraw()
       selectionLayer.batchDraw()
+    })
+
+    $effect(() => {
+      const selected = selectionStore.selectedIds
+      const resizePreview = selectionStore.resizePreview
+      const hoveredId = selectionStore.hoveredHandleId
+      const scale = viewportStore.scale
+      const sizeWorld = HANDLE_SIZE_PX / scale
+
+      let handles: Array<{ id: string; x: number; y: number }> = []
+      if (selected.size === 1) {
+        const [id] = selected
+        const obj = canvasStore.objects.find((o) => o.id === id)
+        if (obj) {
+          const data = resizePreview && resizePreview.id === id ? resizePreview.data : obj.data
+          handles = handlePositionsFor(data)
+        }
+      }
+
+      const seen = new Set<string>()
+      for (const h of handles) {
+        seen.add(h.id)
+        const isHovered = hoveredId === h.id
+        const config = {
+          x: h.x - sizeWorld / 2,
+          y: h.y - sizeWorld / 2,
+          width: sizeWorld,
+          height: sizeWorld,
+          fill: isHovered ? HANDLE_HOVER_FILL : HANDLE_FILL,
+          stroke: SELECTION_COLOR,
+          strokeWidth: 1,
+          strokeScaleEnabled: false,
+          listening: false,
+        }
+        const existing = handleRectsById.get(h.id)
+        if (existing) {
+          existing.setAttrs(config)
+        } else {
+          const rect = new Konva.Rect(config)
+          handleRectsById.set(h.id, rect)
+          handlesLayer.add(rect)
+        }
+      }
+      for (const [id, rect] of handleRectsById) {
+        if (!seen.has(id)) {
+          rect.destroy()
+          handleRectsById.delete(id)
+        }
+      }
+      handlesLayer.batchDraw()
     })
 
     $effect(() => {
