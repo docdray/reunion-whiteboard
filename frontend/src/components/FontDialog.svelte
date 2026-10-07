@@ -24,7 +24,12 @@
     onFontFamilyChange?.(fontFamily)
   }
 
+  const MIN_FONT_SIZE = 8
+  const MAX_FONT_SIZE = 96
+
+  /** Verwirft leere/ungültige/außerhalb des sinnvollen Bereichs liegende Eingaben, statt z.B. eine Größe von 0 live an alle Mitbenutzer zu senden. */
   function pickFontSize(fontSize: number): void {
+    if (!Number.isFinite(fontSize) || fontSize < MIN_FONT_SIZE || fontSize > MAX_FONT_SIZE) return
     toolStore.setFontSize(fontSize)
     onFontSizeChange?.(fontSize)
   }

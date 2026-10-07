@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { toolStore } from '../lib/stores/toolStore.svelte'
   import { canvasStore } from '../lib/stores/canvasStore.svelte'
   import { selectionStore } from '../lib/stores/selectionStore.svelte'
@@ -106,10 +107,13 @@
   // Synchronisiert die Toolbar-Werte auf die Eigenschaften des zuletzt selektierten Objekts, statt
   // stur den zuletzt manuell gewählten Wert zu behalten (Gegenrichtung zu applyToSelection oben —
   // schreibt direkt in toolStore, OHNE über die onChange-Handler zu gehen, also keine Rückkopplung).
+  // canvasStore.objects wird bewusst via untrack() gelesen: der Effekt soll nur bei einem echten
+  // Selektionswechsel laufen, nicht bei jeder entfernten Objekt-Änderung (z.B. wenn ein anderer
+  // Nutzer irgendwo auf dem Canvas zeichnet).
   $effect(() => {
     const selectedIds = selectionStore.selectedIds
     if (toolStore.mode !== 'select' || selectedIds.size === 0) return
-    const representative = pickRepresentativeObject(canvasStore.objects, selectedIds)
+    const representative = untrack(() => pickRepresentativeObject(canvasStore.objects, selectedIds))
     if (!representative) return
     const values = toolStoreValuesFrom(representative.data)
     toolStore.setColor(values.color)

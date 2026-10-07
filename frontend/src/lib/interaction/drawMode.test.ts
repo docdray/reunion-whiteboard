@@ -128,6 +128,28 @@ describe('DrawInteraction', () => {
     expect(interaction.isDragging).toBe(false)
   })
 
+  it.each(['rect', 'circle', 'ellipse', 'line', 'arrow', 'freehand'] as const)(
+    'discards a %s click without meaningful movement instead of committing an invisible object',
+    (tool) => {
+      const { interaction, onCommit, onPreviewClear } = makeInteraction()
+      interaction.pointerDown(tool, { x: 5, y: 5 })
+      interaction.pointerUp({ x: 6, y: 6 }) // Distanz < DRAG_CLICK_THRESHOLD (4)
+      expect(onCommit).not.toHaveBeenCalled()
+      expect(onPreviewClear).toHaveBeenCalledOnce()
+      expect(interaction.isDragging).toBe(false)
+    },
+  )
+
+  it.each(['rect', 'circle', 'ellipse', 'line', 'arrow', 'freehand'] as const)(
+    'still commits a %s when dragged beyond the click threshold',
+    (tool) => {
+      const { interaction, onCommit } = makeInteraction()
+      interaction.pointerDown(tool, { x: 0, y: 0 })
+      interaction.pointerUp({ x: 10, y: 10 }) // Distanz >= DRAG_CLICK_THRESHOLD (4)
+      expect(onCommit).toHaveBeenCalledOnce()
+    },
+  )
+
   it('sticky note falls back to the default size for a click without movement', () => {
     const { interaction, onCommit } = makeInteraction(() => 'Notiz')
     interaction.pointerDown('sticky-note', { x: 5, y: 5 })

@@ -1,6 +1,8 @@
 import type { PointDto, ShapeData, ShapeType } from '../protocol/messages'
 import {
+  DRAG_CLICK_THRESHOLD,
   type DrawSettings,
+  distance,
   shapeDataFromDrag,
   stickyNoteAreaFromDrag,
   stickyNoteFromArea,
@@ -73,13 +75,15 @@ export class DrawInteraction {
       return
     }
 
-    const data = shapeDataFromDrag(
-      this.tool as Exclude<ShapeType, 'text' | 'sticky-note'>,
-      geometry,
-      this.callbacks.getSettings(),
-    )
-    this.callbacks.onCommit(this.tool, data)
     this.callbacks.onPreviewClear()
+    if (distance(this.start, point) >= DRAG_CLICK_THRESHOLD) {
+      const data = shapeDataFromDrag(
+        this.tool as Exclude<ShapeType, 'text' | 'sticky-note'>,
+        geometry,
+        this.callbacks.getSettings(),
+      )
+      this.callbacks.onCommit(this.tool, data)
+    }
     this.reset()
   }
 

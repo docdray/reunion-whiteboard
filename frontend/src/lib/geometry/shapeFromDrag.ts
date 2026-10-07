@@ -33,7 +33,7 @@ export interface DragGeometry {
   points?: PointDto[]
 }
 
-function distance(a: PointDto, b: PointDto): number {
+export function distance(a: PointDto, b: PointDto): number {
   return Math.hypot(b.x - a.x, b.y - a.y)
 }
 
@@ -140,12 +140,12 @@ export interface RectArea {
 
 const STICKY_NOTE_DEFAULT_WIDTH = 160
 const STICKY_NOTE_DEFAULT_HEIGHT = 120
-/** Unterhalb dieser Ziehdistanz (Weltkoordinaten) gilt die Geste als Klick statt als Ziehen. */
-const STICKY_NOTE_CLICK_THRESHOLD = 4
+/** Unterhalb dieser Ziehdistanz (Weltkoordinaten) gilt die Geste als Klick statt als Ziehen — auch von drawMode.ts für alle anderen Zeichenwerkzeuge wiederverwendet, um Klicks ohne Bewegung zu verwerfen statt unsichtbare Null-Größe-Objekte zu erzeugen. */
+export const DRAG_CLICK_THRESHOLD = 4
 
 /** Rechteck-Fläche aus dem Drag wie bei `rect`; bei einem reinen Klick (kaum Bewegung) eine feste Standardgröße, verankert am Klickpunkt als obere linke Ecke. */
 export function stickyNoteAreaFromDrag(geometry: DragGeometry): RectArea {
-  if (distance(geometry.start, geometry.end) < STICKY_NOTE_CLICK_THRESHOLD) {
+  if (distance(geometry.start, geometry.end) < DRAG_CLICK_THRESHOLD) {
     return { x: geometry.start.x, y: geometry.start.y, width: STICKY_NOTE_DEFAULT_WIDTH, height: STICKY_NOTE_DEFAULT_HEIGHT }
   }
   const x = Math.min(geometry.start.x, geometry.end.x)

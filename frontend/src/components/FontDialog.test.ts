@@ -26,6 +26,33 @@ describe('FontDialog', () => {
     expect(toolStore.fontSize).toBe(24)
   })
 
+  it('ignores an emptied font-size field instead of applying 0', async () => {
+    const onFontSizeChange = vi.fn()
+    render(FontDialog, { onFontSizeChange })
+    const input = screen.getByRole('spinbutton') as HTMLInputElement
+    await fireEvent.input(input, { target: { value: '' } })
+    expect(toolStore.fontSize).toBe(16)
+    expect(onFontSizeChange).not.toHaveBeenCalled()
+  })
+
+  it('ignores a font size of 0 or below the minimum', async () => {
+    const onFontSizeChange = vi.fn()
+    render(FontDialog, { onFontSizeChange })
+    const input = screen.getByRole('spinbutton') as HTMLInputElement
+    await fireEvent.input(input, { target: { value: '0' } })
+    expect(toolStore.fontSize).toBe(16)
+    await fireEvent.input(input, { target: { value: '-5' } })
+    expect(toolStore.fontSize).toBe(16)
+    expect(onFontSizeChange).not.toHaveBeenCalled()
+  })
+
+  it('ignores a font size above the sensible maximum', async () => {
+    render(FontDialog)
+    const input = screen.getByRole('spinbutton') as HTMLInputElement
+    await fireEvent.input(input, { target: { value: '500' } })
+    expect(toolStore.fontSize).toBe(16)
+  })
+
   it('toggles bold, italic, underline and strikethrough independently', async () => {
     render(FontDialog)
     await fireEvent.click(screen.getByText('F'))
