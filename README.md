@@ -7,6 +7,8 @@ Kollaboratives Whiteboard: mehrere Nutzer zeichnen live auf einem gemeinsamen Ca
 - `backend/` — Quarkus/Kotlin, REST + WebSocket, SQLite-Persistenz
 - `frontend/` — Svelte 5 + Vite + TypeScript, Konva.js für das Canvas-Rendering
 
+Welche Datei wofür zuständig ist, steht in [DATEIEN.md](DATEIEN.md).
+
 ## Entwicklung
 
 ```shell script
