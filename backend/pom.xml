@@ -70,6 +70,10 @@
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-openapi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
             <artifactId>quarkus-junit</artifactId>
             <scope>test</scope>
         </dependency>
@@ -99,6 +103,27 @@
                 <version>${quarkus.platform.version}</version>
                 <extensions>true</extensions>
             </plugin>
+            <!-- Frontend-Build haengt in process-classes statt generate-resources: er braucht das OpenAPI-Schema,
+                 das erst aus den kompilierten Klassen entsteht. Reihenfolge innerhalb der Phase = Reihenfolge hier. -->
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>smallrye-open-api-maven-plugin</artifactId>
+                <version>4.3.5</version>
+                <executions>
+                    <execution>
+                        <id>generate-openapi</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>generate-schema</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/openapi</outputDirectory>
+                            <schemaFilename>openapi</schemaFilename>
+                            <filter>org.reunion.canvas.openapi.PolymorphicSchemaFilter</filter>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>com.github.eirslett</groupId>
                 <artifactId>frontend-maven-plugin</artifactId>
@@ -110,7 +135,7 @@
                 <executions>
                     <execution>
                         <id>install-node-and-npm</id>
-                        <phase>generate-resources</phase>
+                        <phase>process-classes</phase>
                         <goals>
                             <goal>install-node-and-npm</goal>
                         </goals>
@@ -123,7 +148,7 @@
                     </execution>
                     <execution>
                         <id>npm-ci</id>
-                        <phase>generate-resources</phase>
+                        <phase>process-classes</phase>
                         <goals>
                             <goal>npm</goal>
                         </goals>
@@ -133,8 +158,21 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <!-- Erzeugt frontend/src/lib/protocol/generated/api.ts aus target/openapi/openapi.json
+                             (smallrye-open-api-maven-plugin, laeuft in derselben Phase davor). -->
+                        <id>npm-generate-api</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>run generate:api</arguments>
+                            <skip>${skip.frontend}</skip>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>npm-build</id>
-                        <phase>generate-resources</phase>
+                        <phase>process-classes</phase>
                         <goals>
                             <goal>npm</goal>
                         </goals>
@@ -151,7 +189,7 @@
                 <executions>
                     <execution>
                         <id>copy-frontend-dist</id>
-                        <phase>generate-resources</phase>
+                        <phase>process-classes</phase>
                         <goals>
                             <goal>copy-resources</goal>
                         </goals>

@@ -1,180 +1,37 @@
-// Spiegelt exakt das Backend-JSON-Protokoll (Jackson @JsonTypeInfo/@JsonSubTypes mit "type"-Discriminator).
-// Backend-Quelle: backend/src/main/kotlin/org/reunion/canvas/{shape/ShapeData.kt,dto/*.kt,ws/protocol/*.kt}
+// Kurze Namen für die Typen des Backend-JSON-Protokolls (REST + WebSocket). Die Typen selbst
+// kommen aus `./generated/api.ts`, das aus dem OpenAPI-Schema des Backends erzeugt wird
+// (beim Maven-Build automatisch, sonst: Backend kompilieren, dann `npm run generate:api`).
+// Felder werden daher in den Kotlin-Klassen geändert, nicht hier. Neue Schemas, die das
+// Frontend braucht, bekommen hier von Hand einen Alias.
 
-export interface PointDto {
-  x: number
-  y: number
-}
+import type { components } from './generated/api'
 
-export interface FreehandShapeData {
-  type: 'freehand'
-  color: string
-  strokeWidth: number
-  points: PointDto[]
-}
+type Schemas = components['schemas']
 
-export interface LineShapeData {
-  type: 'line'
-  color: string
-  strokeWidth: number
-  x1: number
-  y1: number
-  x2: number
-  y2: number
-}
+export type PointDto = Schemas['PointDto']
 
-export interface RectShapeData {
-  type: 'rect'
-  color: string
-  strokeWidth: number
-  filled: boolean
-  x: number
-  y: number
-  width: number
-  height: number
-}
+export type FreehandShapeData = Schemas['FreehandShapeData']
+export type LineShapeData = Schemas['LineShapeData']
+export type RectShapeData = Schemas['RectShapeData']
+export type CircleShapeData = Schemas['CircleShapeData']
+export type EllipseShapeData = Schemas['EllipseShapeData']
+export type TextShapeData = Schemas['TextShapeData']
+export type ArrowShapeData = Schemas['ArrowShapeData']
+export type StickyNoteShapeData = Schemas['StickyNoteShapeData']
+export type ShapeData = Schemas['ShapeData']
+export type ShapeType = Schemas['ShapeType']
 
-export interface CircleShapeData {
-  type: 'circle'
-  color: string
-  strokeWidth: number
-  filled: boolean
-  x: number
-  y: number
-  radius: number
-}
+export type CanvasObjectDto = Schemas['CanvasObjectDto']
+export type CanvasSummaryDto = Schemas['CanvasSummaryDto']
+export type CreateCanvasRequest = Schemas['CreateCanvasRequest']
+export type PresenceInfo = Schemas['PresenceInfo']
+export type ObjectUpdateEntry = Schemas['ObjectUpdateEntry']
 
-export interface EllipseShapeData {
-  type: 'ellipse'
-  color: string
-  strokeWidth: number
-  filled: boolean
-  x: number
-  y: number
-  radiusX: number
-  radiusY: number
-}
+// --- Client -> Server, Kanal /ws/canvas/{canvasId} ---
+export type ClientMessage = Schemas['ClientMessage']
 
-export interface TextShapeData {
-  type: 'text'
-  color: string
-  x: number
-  y: number
-  content: string
-  fontFamily: string
-  fontSize: number
-  bold: boolean
-  italic: boolean
-  underline: boolean
-  strikethrough: boolean
-}
-
-export interface ArrowShapeData {
-  type: 'arrow'
-  color: string
-  strokeWidth: number
-  filled: boolean
-  x1: number
-  y1: number
-  x2: number
-  y2: number
-  doubleHeaded: boolean
-}
-
-export interface StickyNoteShapeData {
-  type: 'sticky-note'
-  /** Hintergrundfarbe des Zettels. */
-  color: string
-  x: number
-  y: number
-  width: number
-  height: number
-  content: string
-  fontFamily: string
-  fontSize: number
-  bold: boolean
-  italic: boolean
-  underline: boolean
-  strikethrough: boolean
-  /** Separate Textfarbe (unabhängig von der Hintergrundfarbe `color`). */
-  textColor: string
-}
-
-export type ShapeData =
-  | FreehandShapeData
-  | LineShapeData
-  | RectShapeData
-  | CircleShapeData
-  | EllipseShapeData
-  | TextShapeData
-  | ArrowShapeData
-  | StickyNoteShapeData
-
-export type ShapeType = ShapeData['type']
-
-export interface CanvasObjectDto {
-  id: string
-  type: string
-  sequence: number
-  data: ShapeData
-}
-
-export interface CanvasSummaryDto {
-  id: string
-  name: string
-  createdAt: string
-  activeUsers: number
-}
-
-export interface CreateCanvasRequest {
-  name: string
-}
-
-export interface PresenceInfo {
-  userId: string
-  displayName: string
-  color: string
-  cursorX?: number | null
-  cursorY?: number | null
-}
-
-export interface ObjectUpdateEntry {
-  id: string
-  data: ShapeData
-}
-
-// --- Client -> Server ---
-
-export type ClientMessage =
-  | { type: 'cursor-move'; x: number; y: number }
-  | { type: 'draw-preview'; shapeType: ShapeType; data: ShapeData }
-  | { type: 'object-create'; shapeType: ShapeType; data: ShapeData }
-  | { type: 'object-update'; objects: ObjectUpdateEntry[] }
-  | { type: 'object-delete'; ids: string[] }
-
-// --- Server -> Client ---
-
-export type ServerMessage =
-  | {
-      type: 'initial-state'
-      selfUserId: string
-      selfColor: string
-      objects: CanvasObjectDto[]
-      users: PresenceInfo[]
-    }
-  | { type: 'user-joined'; userId: string; displayName: string; color: string }
-  | { type: 'user-left'; userId: string }
-  | { type: 'presence-update'; userId: string; x: number; y: number }
-  | { type: 'draw-preview-relay'; userId: string; shapeType: ShapeType; data: ShapeData }
-  | { type: 'object-created'; obj: CanvasObjectDto }
-  | { type: 'object-updated'; objects: CanvasObjectDto[] }
-  | { type: 'object-deleted'; ids: string[] }
+// --- Server -> Client, Kanal /ws/canvas/{canvasId} ---
+export type ServerMessage = Schemas['ServerMessage']
 
 // --- Lobby (Startbildschirm) Server -> Client, Kanal /ws/canvases ---
-// Backend-Quelle: backend/src/main/kotlin/org/reunion/canvas/ws/protocol/LobbyServerMessage.kt
-
-export type LobbyServerMessage =
-  | { type: 'lobby-initial-state'; canvases: CanvasSummaryDto[] }
-  | { type: 'canvas-added'; canvas: CanvasSummaryDto }
-  | { type: 'canvas-updated'; canvas: CanvasSummaryDto }
-  | { type: 'canvas-removed'; id: string }
+export type LobbyServerMessage = Schemas['LobbyServerMessage']

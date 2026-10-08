@@ -2,6 +2,7 @@ package org.reunion.canvas.shape
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import org.eclipse.microprofile.openapi.annotations.media.Schema
 
 data class PointDto(val x: Double, val y: Double)
 
@@ -15,6 +16,19 @@ data class PointDto(val x: Double, val y: Double)
     JsonSubTypes.Type(TextShapeData::class, name = "text"),
     JsonSubTypes.Type(ArrowShapeData::class, name = "arrow"),
     JsonSubTypes.Type(StickyNoteShapeData::class, name = "sticky-note"),
+)
+@Schema(
+    name = "ShapeData",
+    oneOf = [
+        FreehandShapeData::class,
+        LineShapeData::class,
+        RectShapeData::class,
+        CircleShapeData::class,
+        EllipseShapeData::class,
+        TextShapeData::class,
+        ArrowShapeData::class,
+        StickyNoteShapeData::class,
+    ],
 )
 sealed interface ShapeData {
     val color: String

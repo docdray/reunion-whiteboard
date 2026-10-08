@@ -2,6 +2,7 @@ package org.reunion.canvas.ws.protocol
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import org.eclipse.microprofile.openapi.annotations.media.Schema
 import org.reunion.canvas.dto.CanvasSummaryDto
 import java.util.UUID
 
@@ -11,6 +12,15 @@ import java.util.UUID
     JsonSubTypes.Type(LobbyServerMessage.CanvasAdded::class, name = "canvas-added"),
     JsonSubTypes.Type(LobbyServerMessage.CanvasUpdated::class, name = "canvas-updated"),
     JsonSubTypes.Type(LobbyServerMessage.CanvasRemoved::class, name = "canvas-removed"),
+)
+@Schema(
+    name = "LobbyServerMessage",
+    oneOf = [
+        LobbyServerMessage.LobbyInitialState::class,
+        LobbyServerMessage.CanvasAdded::class,
+        LobbyServerMessage.CanvasUpdated::class,
+        LobbyServerMessage.CanvasRemoved::class,
+    ],
 )
 sealed interface LobbyServerMessage {
 

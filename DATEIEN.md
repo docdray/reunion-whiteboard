@@ -17,9 +17,9 @@ Welche Datei ist wofür zuständig. Testdateien (`*.test.ts`, `*Test.kt`) liegen
 
 | Datei | Aufgabe |
 |---|---|
-| `pom.xml` | Maven-Build, Abhängigkeiten (Quarkus REST, WebSockets Next, Hibernate Panache, SQLite). Baut über `frontend-maven-plugin` das Frontend mit und kopiert `frontend/dist` nach `META-INF/resources`, sodass alles aus einem JAR ausgeliefert wird |
+| `pom.xml` | Maven-Build, Abhängigkeiten (Quarkus REST, WebSockets Next, Hibernate Panache, SQLite, SmallRye OpenAPI). Erzeugt nach dem Kompilieren `target/openapi/openapi.json`, generiert daraus die Frontend-Protokolltypen, baut über `frontend-maven-plugin` das Frontend mit und kopiert `frontend/dist` nach `META-INF/resources`, sodass alles aus einem JAR ausgeliefert wird |
 | `mvnw`, `mvnw.cmd`, `.mvn/wrapper/` | Maven Wrapper |
-| `src/main/resources/application.properties` | SQLite-Datenquelle (WAL-Modus, Pool = 1 Connection), Schema-Strategie; separate Test-DB im Profil `%test` |
+| `src/main/resources/application.properties` | SQLite-Datenquelle (WAL-Modus, Pool = 1 Connection), Schema-Strategie; separate Test-DB im Profil `%test`; registriert den OpenAPI-Filter |
 | `src/main/docker/Dockerfile.*` | Quarkus-Standard-Dockerfiles (JVM/Native) – nicht vom Deployment genutzt, das läuft über `deploy/Dockerfile` |
 | `data/` | Ablageort der SQLite-Datei `reunion.db` zur Laufzeit |
 
@@ -47,6 +47,8 @@ Welche Datei ist wofür zuständig. Testdateien (`*.test.ts`, `*Test.kt`) liegen
 | `ws/protocol/ClientMessage.kt` | Nachrichten Client → Server im Canvas-WebSocket |
 | `ws/protocol/ServerMessage.kt` | Nachrichten Server → Client im Canvas-WebSocket |
 | `ws/protocol/LobbyServerMessage.kt` | Nachrichten Server → Client im Lobby-WebSocket |
+| `openapi/ReunionOpenApiDefinition.kt` | OpenAPI-Definition; nimmt die WebSocket-Nachrichten ins Schema auf, die sonst kein REST-Endpunkt referenziert |
+| `openapi/PolymorphicSchemaFilter.kt` | Überträgt die Jackson-Polymorphie (`type`-Diskriminator) ins OpenAPI-Schema und erzeugt das Enum `ShapeType` |
 
 ### Tests (`src/test/kotlin/org/reunion/canvas/`)
 
@@ -63,7 +65,7 @@ Welche Datei ist wofür zuständig. Testdateien (`*.test.ts`, `*Test.kt`) liegen
 
 | Datei | Aufgabe |
 |---|---|
-| `package.json` | Abhängigkeiten und npm-Skripte |
+| `package.json` | Abhängigkeiten und npm-Skripte (u. a. `generate:api`) |
 | `vite.config.ts` | Vite-Build, Dev-Proxy (`/api`, `/ws` → Port 8080), Vitest-Konfiguration (jsdom) |
 | `playwright.config.ts` | E2E-Tests gegen das gebaute JAR auf Port 8080 |
 | `svelte.config.js`, `tsconfig*.json` | Svelte- und TypeScript-Konfiguration |
@@ -106,7 +108,8 @@ Welche Datei ist wofür zuständig. Testdateien (`*.test.ts`, `*Test.kt`) liegen
 
 | Datei | Aufgabe |
 |---|---|
-| `messages.ts` | TypeScript-Spiegel des Backend-JSON-Protokolls (Form-Daten, DTOs, Nachrichten) – muss mit den Kotlin-Klassen synchron bleiben |
+| `generated/api.ts` | **Generiert** (openapi-typescript) aus dem OpenAPI-Schema des Backends – nicht von Hand ändern |
+| `messages.ts` | Kurze Namen für die generierten Protokolltypen (Form-Daten, DTOs, Nachrichten); einziger Import-Punkt für den restlichen Code |
 
 **Zustand (`stores/`, Svelte-5-Runes)**
 
