@@ -1,0 +1,13 @@
+services:
+  reunion:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - reunion-data:/deployments/data
+    restart: unless-stopped
+
+volumes:
+  reunion-data:

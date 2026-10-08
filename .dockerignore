@@ -1,0 +1,14 @@
+**/.git
+**/node_modules
+**/target
+**/.idea
+**/.vscode
+*.iml
+
+frontend/dist
+frontend/node
+frontend/test-results
+frontend/playwright-report
+
+backend/data/*.db
+backend/data/*.db-*
