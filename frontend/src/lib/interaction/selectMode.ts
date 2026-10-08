@@ -1,12 +1,14 @@
 import type { CanvasObjectDto, ObjectUpdateEntry, PointDto } from '../protocol/messages'
-import { boundsFromRect, boundsIntersect, distance, hitsShapeAt, shapeBounds, translateShapeData } from '../geometry/shapeBounds'
-
-export interface MarqueeRect {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+import {
+  boundsFromRect,
+  boundsIntersect,
+  distance,
+  hitsShapeAt,
+  rectFromPoints,
+  shapeBounds,
+  translateShapeData,
+  type Rect,
+} from '../geometry/shapeBounds'
 
 export interface SelectInteractionCallbacks {
   getObjects: () => CanvasObjectDto[]
@@ -15,7 +17,7 @@ export interface SelectInteractionCallbacks {
   onMovePreview: (deltaX: number, deltaY: number) => void
   onMovePreviewClear: () => void
   onMoveCommit: (updates: ObjectUpdateEntry[]) => void
-  onMarqueeChange: (rect: MarqueeRect | null) => void
+  onMarqueeChange: (rect: Rect | null) => void
 }
 
 /** Unterhalb dieser Distanz (Weltkoordinaten) gilt eine Geste als Klick statt als Ziehen. */
@@ -33,15 +35,6 @@ export function hitTest(objects: CanvasObjectDto[], point: PointDto): CanvasObje
     if (hitsShapeAt(obj.data, point)) return obj
   }
   return null
-}
-
-function normalizeRect(a: PointDto, b: PointDto): MarqueeRect {
-  return {
-    x: Math.min(a.x, b.x),
-    y: Math.min(a.y, b.y),
-    width: Math.abs(b.x - a.x),
-    height: Math.abs(b.y - a.y),
-  }
 }
 
 /**
@@ -76,7 +69,7 @@ export class SelectInteraction {
 
   pointerMove(point: PointDto): void {
     if (this.state.kind === 'marquee') {
-      this.callbacks.onMarqueeChange(normalizeRect(this.state.start, point))
+      this.callbacks.onMarqueeChange(rectFromPoints(this.state.start, point))
       return
     }
     if (this.state.kind === 'move') {
@@ -91,7 +84,7 @@ export class SelectInteraction {
     if (this.state.kind === 'marquee') {
       const dragged = distance(this.state.start, point) > DRAG_THRESHOLD
       if (dragged) {
-        const rect = normalizeRect(this.state.start, point)
+        const rect = rectFromPoints(this.state.start, point)
         const rectBounds = boundsFromRect(rect)
         const objects = this.callbacks.getObjects()
         const hits = objects.filter((o) => boundsIntersect(shapeBounds(o.data), rectBounds))

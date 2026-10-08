@@ -48,6 +48,30 @@
     }
   }
 
+  function screenPoint(event: MouseEvent): { x: number; y: number } {
+    const rect = containerEl.getBoundingClientRect()
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top }
+  }
+
+  function eventToWorld(event: MouseEvent): { x: number; y: number } {
+    const screen = screenPoint(event)
+    return screenToWorld(screen.x, screen.y)
+  }
+
+  /** Wendet Änderungen sofort lokal an (optimistisch) und schickt sie an den Server. */
+  function commitUpdates(updates: ObjectUpdateEntry[]): void {
+    if (updates.length === 0) return
+    for (const update of updates) canvasStore.updateData(update.id, update.data)
+    socket?.send({ type: 'object-update', objects: updates })
+  }
+
+  function resetStores(): void {
+    canvasStore.reset()
+    presenceStore.reset()
+    previewStore.reset()
+    selectionStore.reset()
+  }
+
   const drawInteraction = new DrawInteraction({
     getSettings: () => toolStore.drawSettings,
     onPreviewUpdate: (shapeType, data) => {
@@ -77,10 +101,7 @@
     select: (ids, additive) => selectionStore.select(ids, additive),
     onMovePreview: (dx, dy) => selectionStore.setMoveDelta(dx, dy),
     onMovePreviewClear: () => selectionStore.clearMoveDelta(),
-    onMoveCommit: (updates) => {
-      for (const update of updates) canvasStore.updateData(update.id, update.data)
-      socket?.send({ type: 'object-update', objects: updates })
-    },
+    onMoveCommit: commitUpdates,
     onMarqueeChange: (rect) => selectionStore.setMarqueeRect(rect),
   })
 
@@ -90,10 +111,7 @@
     getScale: () => viewportStore.scale,
     onPreview: (id, data) => selectionStore.setResizePreview(id, data),
     onPreviewClear: () => selectionStore.clearResizePreview(),
-    onCommit: (id, data) => {
-      canvasStore.updateData(id, data)
-      socket?.send({ type: 'object-update', objects: [{ id, data }] })
-    },
+    onCommit: (id, data) => commitUpdates([{ id, data }]),
   })
 
   function isEditableTarget(target: EventTarget | null): boolean {
@@ -112,10 +130,7 @@
   }
 
   onMount(() => {
-    canvasStore.reset()
-    presenceStore.reset()
-    previewStore.reset()
-    selectionStore.reset()
+    resetStores()
     viewportStore.setViewport({ panX: 0, panY: 0, scale: 1 })
     window.addEventListener('keydown', handleKeyDown)
 
@@ -159,16 +174,12 @@
   onDestroy(() => {
     window.removeEventListener('keydown', handleKeyDown)
     socket?.close()
-    canvasStore.reset()
-    presenceStore.reset()
-    previewStore.reset()
-    selectionStore.reset()
+    resetStores()
   })
 
   function handleWheel(event: WheelEvent): void {
     event.preventDefault()
-    const rect = containerEl.getBoundingClientRect()
-    const cursor = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+    const cursor = screenPoint(event)
     const next = zoomToCursor(
       { panX: viewportStore.panX, panY: viewportStore.panY, scale: viewportStore.scale },
       cursor,
@@ -179,8 +190,7 @@
 
   function handlePointerDown(event: PointerEvent): void {
     containerEl.setPointerCapture(event.pointerId)
-    const rect = containerEl.getBoundingClientRect()
-    const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
+    const world = eventToWorld(event)
 
     if (toolStore.mode === 'draw') {
       if (toolStore.tool === 'eraser') {
@@ -202,8 +212,7 @@
   }
 
   function handlePointerMove(event: PointerEvent): void {
-    const rect = containerEl.getBoundingClientRect()
-    const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+    const screen = screenPoint(event)
     const world = screenToWorld(screen.x, screen.y)
 
     eraserPointer = toolStore.mode === 'draw' && toolStore.tool === 'eraser' ? screen : null
@@ -244,20 +253,11 @@
 
   function handleDoubleClick(event: MouseEvent): void {
     if (toolStore.mode !== 'select') return
-    const rect = containerEl.getBoundingClientRect()
-    const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
+    const world = eventToWorld(event)
     const hit = findEditableTextObject(canvasStore.objects, world)
     if (!hit) return
     const update = buildContentUpdate(hit, (current) => window.prompt('Text bearbeiten:', current))
-    if (!update) return
-    canvasStore.updateData(update.id, update.data)
-    socket?.send({ type: 'object-update', objects: [update] })
-  }
-
-  function handleApplyStyleToSelection(updates: ObjectUpdateEntry[]): void {
-    if (updates.length === 0) return
-    for (const update of updates) canvasStore.updateData(update.id, update.data)
-    socket?.send({ type: 'object-update', objects: updates })
+    if (update) commitUpdates([update])
   }
 
   function handleCenterView(): void {
@@ -268,8 +268,7 @@
   function handlePointerUp(event: PointerEvent): void {
     containerEl.releasePointerCapture(event.pointerId)
 
-    const rect = containerEl.getBoundingClientRect()
-    const world = screenToWorld(event.clientX - rect.left, event.clientY - rect.top)
+    const world = eventToWorld(event)
 
     if (toolStore.mode === 'draw' && toolStore.tool === 'eraser') {
       eraserInteraction.pointerUp()
@@ -360,7 +359,7 @@
   {canvasName}
   {onLeave}
   onCenterView={handleCenterView}
-  onApplyStyleToSelection={handleApplyStyleToSelection}
+  onApplyStyleToSelection={commitUpdates}
 />
 
 <style>
