@@ -1,4 +1,4 @@
-import type { PointDto, ShapeData } from '../protocol/messages'
+import type { ArrowShapeData, FreehandShapeData, LineShapeData, PointDto, ShapeData } from '../protocol/messages'
 
 export interface Bounds {
   minX: number
@@ -7,11 +7,21 @@ export interface Bounds {
   maxY: number
 }
 
-export interface RectLike {
+export interface Rect {
   x: number
   y: number
   width: number
   height: number
+}
+
+/** Achsenparalleles Rechteck zwischen zwei beliebigen Eckpunkten (Reihenfolge egal). */
+export function rectFromPoints(a: PointDto, b: PointDto): Rect {
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(b.x - a.x),
+    height: Math.abs(b.y - a.y),
+  }
 }
 
 /** Grobe Näherung ohne echtes Canvas-Text-Measuring: durchschnittliche Zeichenbreite ≈ 0.6 * fontSize. */
@@ -26,6 +36,7 @@ export function shapeBounds(data: ShapeData): Bounds {
       return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) }
     }
     case 'line':
+    case 'arrow':
       return {
         minX: Math.min(data.x1, data.x2),
         minY: Math.min(data.y1, data.y2),
@@ -33,7 +44,8 @@ export function shapeBounds(data: ShapeData): Bounds {
         maxY: Math.max(data.y1, data.y2),
       }
     case 'rect':
-      return { minX: data.x, minY: data.y, maxX: data.x + data.width, maxY: data.y + data.height }
+    case 'sticky-note':
+      return boundsFromRect(data)
     case 'circle':
       return {
         minX: data.x - data.radius,
@@ -53,15 +65,6 @@ export function shapeBounds(data: ShapeData): Bounds {
       const height = data.fontSize * TEXT_LINE_HEIGHT_FACTOR
       return { minX: data.x, minY: data.y, maxX: data.x + width, maxY: data.y + height }
     }
-    case 'arrow':
-      return {
-        minX: Math.min(data.x1, data.x2),
-        minY: Math.min(data.y1, data.y2),
-        maxX: Math.max(data.x1, data.x2),
-        maxY: Math.max(data.y1, data.y2),
-      }
-    case 'sticky-note':
-      return { minX: data.x, minY: data.y, maxX: data.x + data.width, maxY: data.y + data.height }
   }
 }
 
@@ -80,7 +83,7 @@ export function unionBounds(list: Bounds[]): Bounds | null {
   }))
 }
 
-export function boundsFromRect(rect: RectLike): Bounds {
+export function boundsFromRect(rect: Rect): Bounds {
   return { minX: rect.x, minY: rect.y, maxX: rect.x + rect.width, maxY: rect.y + rect.height }
 }
 
@@ -123,21 +126,26 @@ function strokeHitTolerance(strokeWidth: number): number {
   return Math.max(4, strokeWidth * 2)
 }
 
+type StrokeShapeData = FreehandShapeData | LineShapeData | ArrowShapeData
+
+/** Flächenlose Typen, deren Treffer-Prüfung gegen den Linienverlauf statt gegen die Bounding-Box läuft. */
+function isStrokeShape(data: ShapeData): data is StrokeShapeData {
+  return data.type === 'freehand' || data.type === 'line' || data.type === 'arrow'
+}
+
+function strokeDistance(data: StrokeShapeData, point: PointDto): number {
+  return data.type === 'freehand'
+    ? distanceToPolyline(point, data.points)
+    : pointToSegmentDistance(point, { x: data.x1, y: data.y1 }, { x: data.x2, y: data.y2 })
+}
+
 /**
  * Minimaler Abstand von `point` zum tatsächlichen Linienverlauf von `data`, oder `null`
  * wenn der Typ keine sinnvolle "Strich"-Geometrie hat (dann gilt die normale Bounding-Box-Prüfung).
  * Nur für die flächenlosen Typen freehand/line/arrow definiert.
  */
 export function distanceToStrokeShape(data: ShapeData, point: PointDto): number | null {
-  switch (data.type) {
-    case 'line':
-    case 'arrow':
-      return pointToSegmentDistance(point, { x: data.x1, y: data.y1 }, { x: data.x2, y: data.y2 })
-    case 'freehand':
-      return distanceToPolyline(point, data.points)
-    default:
-      return null
-  }
+  return isStrokeShape(data) ? strokeDistance(data, point) : null
 }
 
 /**
@@ -147,10 +155,8 @@ export function distanceToStrokeShape(data: ShapeData, point: PointDto): number 
  * bisherigen, bewusst großzügigen Bounding-Box-Prüfung (auch bei ungefüllten Formen).
  */
 export function hitsShapeAt(data: ShapeData, point: PointDto): boolean {
-  const strokeDistance = distanceToStrokeShape(data, point)
-  if (strokeDistance !== null) {
-    const strokeWidth = data.type === 'freehand' || data.type === 'line' || data.type === 'arrow' ? data.strokeWidth : 0
-    return strokeDistance <= strokeHitTolerance(strokeWidth)
+  if (isStrokeShape(data)) {
+    return strokeDistance(data, point) <= strokeHitTolerance(data.strokeWidth)
   }
   return containsPoint(shapeBounds(data), point)
 }

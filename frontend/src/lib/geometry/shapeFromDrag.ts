@@ -11,7 +11,7 @@ import type {
   StickyNoteShapeData,
   TextShapeData,
 } from '../protocol/messages'
-import { distance } from './shapeBounds'
+import { distance, rectFromPoints, type Rect } from './shapeBounds'
 
 export { distance }
 
@@ -58,19 +58,12 @@ export function lineFromDrag(geometry: DragGeometry, settings: DrawSettings): Li
 }
 
 export function rectFromDrag(geometry: DragGeometry, settings: DrawSettings): RectShapeData {
-  const x = Math.min(geometry.start.x, geometry.end.x)
-  const y = Math.min(geometry.start.y, geometry.end.y)
-  const width = Math.abs(geometry.end.x - geometry.start.x)
-  const height = Math.abs(geometry.end.y - geometry.start.y)
   return {
     type: 'rect',
     color: settings.color,
     strokeWidth: settings.strokeWidth,
     filled: settings.filled,
-    x,
-    y,
-    width,
-    height,
+    ...rectFromPoints(geometry.start, geometry.end),
   }
 }
 
@@ -130,30 +123,21 @@ export function textFromClick(point: PointDto, content: string, settings: DrawSe
   }
 }
 
-export interface RectArea {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
 const STICKY_NOTE_DEFAULT_WIDTH = 160
 const STICKY_NOTE_DEFAULT_HEIGHT = 120
 /** Unterhalb dieser Ziehdistanz (Weltkoordinaten) gilt die Geste als Klick statt als Ziehen — auch von drawMode.ts für alle anderen Zeichenwerkzeuge wiederverwendet, um Klicks ohne Bewegung zu verwerfen statt unsichtbare Null-Größe-Objekte zu erzeugen. */
 export const DRAG_CLICK_THRESHOLD = 4
 
 /** Rechteck-Fläche aus dem Drag wie bei `rect`; bei einem reinen Klick (kaum Bewegung) eine feste Standardgröße, verankert am Klickpunkt als obere linke Ecke. */
-export function stickyNoteAreaFromDrag(geometry: DragGeometry): RectArea {
+export function stickyNoteAreaFromDrag(geometry: DragGeometry): Rect {
   if (distance(geometry.start, geometry.end) < DRAG_CLICK_THRESHOLD) {
     return { x: geometry.start.x, y: geometry.start.y, width: STICKY_NOTE_DEFAULT_WIDTH, height: STICKY_NOTE_DEFAULT_HEIGHT }
   }
-  const x = Math.min(geometry.start.x, geometry.end.x)
-  const y = Math.min(geometry.start.y, geometry.end.y)
-  return { x, y, width: Math.abs(geometry.end.x - geometry.start.x), height: Math.abs(geometry.end.y - geometry.start.y) }
+  return rectFromPoints(geometry.start, geometry.end)
 }
 
 /** Baut die finalen ShapeData erst NACH der Textabfrage (window.prompt) auf, analog zu textFromClick. */
-export function stickyNoteFromArea(area: RectArea, content: string, settings: DrawSettings): StickyNoteShapeData {
+export function stickyNoteFromArea(area: Rect, content: string, settings: DrawSettings): StickyNoteShapeData {
   return {
     type: 'sticky-note',
     color: settings.color,

@@ -20,8 +20,8 @@ import java.util.UUID
 /**
  * Ein Singleton-Bean, geteilt von ALLEN Verbindungen zu diesem Endpoint über alle Canvases hinweg.
  * `connection.broadcast()` adressiert daher standardmaessig ALLE Canvases gleichzeitig - jeder
- * Broadcast MUSS ueber `.filter { it.pathParam("canvasId") == canvasId }` auf den aktuellen Canvas
- * eingeschraenkt werden, sonst lecken Nachrichten zwischen unabhaengigen Canvases.
+ * Broadcast MUSS ueber [broadcastToCanvas] bzw. [broadcastToOthers] laufen, die auf den aktuellen
+ * Canvas einschraenken, sonst lecken Nachrichten zwischen unabhaengigen Canvases.
  */
 @WebSocket(path = "/ws/canvas/{canvasId}")
 class CanvasWebSocketEndpoint @Inject constructor(
@@ -43,9 +43,7 @@ class CanvasWebSocketEndpoint @Inject constructor(
         val objects = canvasObjectService.listForCanvas(id)
         val others = presence.others(id, connection.id())
 
-        connection.broadcast()
-            .filter { it.id() != connection.id() && it.pathParam("canvasId") == canvasId }
-            .sendTextAndAwait(ServerMessage.UserJoined(info.userId, info.displayName, info.color))
+        broadcastToOthers(connection, canvasId, ServerMessage.UserJoined(info.userId, info.displayName, info.color))
         canvasService.getSummary(id)?.let { lobbyBroadcaster.canvasUpdated(it) }
 
         return ServerMessage.InitialState(
@@ -62,36 +60,26 @@ class CanvasWebSocketEndpoint @Inject constructor(
         when (message) {
             is ClientMessage.CursorMove -> {
                 presence.updateCursor(id, connection.id(), message.x, message.y)
-                connection.broadcast()
-                    .filter { it.id() != connection.id() && it.pathParam("canvasId") == canvasId }
-                    .sendTextAndAwait(ServerMessage.PresenceUpdate(connection.id(), message.x, message.y))
+                broadcastToOthers(connection, canvasId, ServerMessage.PresenceUpdate(connection.id(), message.x, message.y))
             }
 
             is ClientMessage.DrawPreview -> {
-                connection.broadcast()
-                    .filter { it.id() != connection.id() && it.pathParam("canvasId") == canvasId }
-                    .sendTextAndAwait(ServerMessage.DrawPreviewRelay(connection.id(), message.shapeType, message.data))
+                broadcastToOthers(connection, canvasId, ServerMessage.DrawPreviewRelay(connection.id(), message.shapeType, message.data))
             }
 
             is ClientMessage.ObjectCreate -> {
                 val created = canvasObjectService.create(id, message.data)
-                connection.broadcast()
-                    .filter { it.pathParam("canvasId") == canvasId }
-                    .sendTextAndAwait(ServerMessage.ObjectCreated(created))
+                broadcastToCanvas(connection, canvasId, ServerMessage.ObjectCreated(created))
             }
 
             is ClientMessage.ObjectUpdate -> {
                 val updated = canvasObjectService.update(id, message.objects.map { it.id to it.data })
-                connection.broadcast()
-                    .filter { it.pathParam("canvasId") == canvasId }
-                    .sendTextAndAwait(ServerMessage.ObjectUpdated(updated))
+                broadcastToCanvas(connection, canvasId, ServerMessage.ObjectUpdated(updated))
             }
 
             is ClientMessage.ObjectDelete -> {
                 canvasObjectService.delete(id, message.ids)
-                connection.broadcast()
-                    .filter { it.pathParam("canvasId") == canvasId }
-                    .sendTextAndAwait(ServerMessage.ObjectDeleted(message.ids))
+                broadcastToCanvas(connection, canvasId, ServerMessage.ObjectDeleted(message.ids))
             }
         }
     }
@@ -100,10 +88,22 @@ class CanvasWebSocketEndpoint @Inject constructor(
     fun onClose(connection: WebSocketConnection, @PathParam canvasId: String) {
         val id = UUID.fromString(canvasId)
         val removed = presence.leave(id, connection.id()) ?: return
+        broadcastToOthers(connection, canvasId, ServerMessage.UserLeft(removed.userId))
+        canvasService.getSummary(id)?.let { lobbyBroadcaster.canvasUpdated(it) }
+    }
+
+    /** Sendet an alle Verbindungen desselben Canvas, inkl. des Absenders. */
+    private fun broadcastToCanvas(connection: WebSocketConnection, canvasId: String, message: ServerMessage) {
+        connection.broadcast()
+            .filter { it.pathParam("canvasId") == canvasId }
+            .sendTextAndAwait(message)
+    }
+
+    /** Sendet an alle ANDEREN Verbindungen desselben Canvas. */
+    private fun broadcastToOthers(connection: WebSocketConnection, canvasId: String, message: ServerMessage) {
         connection.broadcast()
             .filter { it.id() != connection.id() && it.pathParam("canvasId") == canvasId }
-            .sendTextAndAwait(ServerMessage.UserLeft(removed.userId))
-        canvasService.getSummary(id)?.let { lobbyBroadcaster.canvasUpdated(it) }
+            .sendTextAndAwait(message)
     }
 
     private fun parseDisplayName(query: String?): String {

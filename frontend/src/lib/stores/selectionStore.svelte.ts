@@ -1,10 +1,10 @@
-import type { MarqueeRect } from '../interaction/selectMode'
+import type { Rect } from '../geometry/shapeBounds'
 import type { ShapeData } from '../protocol/messages'
 
 class SelectionStore {
   selectedIds = $state<Set<string>>(new Set())
   moveDelta = $state<{ dx: number; dy: number } | null>(null)
-  marqueeRect = $state<MarqueeRect | null>(null)
+  marqueeRect = $state<Rect | null>(null)
   /** Lokale, optimistische Vorschau während ein Anfasspunkt gezogen wird (siehe resizeMode.ts). */
   resizePreview = $state<{ id: string; data: ShapeData } | null>(null)
   /** ID des Griffs, über dem die Maus gerade schwebt (für den Hover-Stil), nur bei Einzelselektion relevant. */
@@ -50,7 +50,7 @@ class SelectionStore {
     this.moveDelta = null
   }
 
-  setMarqueeRect(rect: MarqueeRect | null): void {
+  setMarqueeRect(rect: Rect | null): void {
     this.marqueeRect = rect
   }
 

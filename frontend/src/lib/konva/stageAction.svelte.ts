@@ -6,8 +6,8 @@ import { selectionStore } from '../stores/selectionStore.svelte'
 import { paddedBoundsForSelection, translateShapeData } from '../geometry/shapeBounds'
 import { arrowHeadWings } from '../geometry/arrowHead'
 import { computeGridLines } from '../geometry/gridLines'
-import { handlePositionsFor, HANDLE_SIZE_PX } from '../interaction/resizeMode'
-import type { ArrowShapeData, ShapeData, StickyNoteShapeData } from '../protocol/messages'
+import { handlePositionsFor, HANDLE_SIZE_PX, type HandlePosition } from '../interaction/resizeMode'
+import type { ArrowShapeData, CanvasObjectDto, ShapeData, StickyNoteShapeData, TextShapeData } from '../protocol/messages'
 
 const GRID_COLOR = '#e3e3e3'
 
@@ -18,6 +18,15 @@ const STICKY_NOTE_PADDING = 10
 const SELECTION_COLOR = '#4a90d9'
 const HANDLE_FILL = '#ffffff'
 const HANDLE_HOVER_FILL = SELECTION_COLOR
+
+/** Konva-Schriftattribute für Text und Notizzettel. */
+function textStyleAttrs(data: TextShapeData | StickyNoteShapeData): { fontStyle: string; textDecoration: string } {
+  const textDecoration = [data.underline ? 'underline' : '', data.strikethrough ? 'line-through' : '']
+    .filter(Boolean)
+    .join(' ')
+  const fontStyle = [data.italic ? 'italic' : '', data.bold ? 'bold' : ''].filter(Boolean).join(' ') || 'normal'
+  return { fontStyle, textDecoration }
+}
 
 function configFor(data: ShapeData): Record<string, unknown> {
   switch (data.type) {
@@ -75,11 +84,7 @@ function configFor(data: ShapeData): Record<string, unknown> {
         pointerAtBeginning: data.doubleHeaded,
         pointerAtEnding: true,
       }
-    case 'text': {
-      const textDecoration = [data.underline ? 'underline' : '', data.strikethrough ? 'line-through' : '']
-        .filter(Boolean)
-        .join(' ')
-      const fontStyle = [data.italic ? 'italic' : '', data.bold ? 'bold' : ''].filter(Boolean).join(' ') || 'normal'
+    case 'text':
       return {
         x: data.x,
         y: data.y,
@@ -87,10 +92,8 @@ function configFor(data: ShapeData): Record<string, unknown> {
         fontFamily: data.fontFamily,
         fontSize: data.fontSize,
         fill: data.color,
-        fontStyle,
-        textDecoration,
+        ...textStyleAttrs(data),
       }
-    }
     case 'sticky-note':
       // Wird nie tatsächlich genutzt (Notizzettel ist immer eine Konva.Group aus Rect+Text,
       // siehe createStickyNoteGroup) — nur für die Exhaustivität der Switch nötig.
@@ -173,10 +176,6 @@ function isStickyNote(data: ShapeData): data is StickyNoteShapeData {
 }
 
 function stickyNoteTextConfig(data: StickyNoteShapeData): Record<string, unknown> {
-  const textDecoration = [data.underline ? 'underline' : '', data.strikethrough ? 'line-through' : '']
-    .filter(Boolean)
-    .join(' ')
-  const fontStyle = [data.italic ? 'italic' : '', data.bold ? 'bold' : ''].filter(Boolean).join(' ') || 'normal'
   return {
     x: data.x + STICKY_NOTE_PADDING,
     y: data.y + STICKY_NOTE_PADDING,
@@ -186,8 +185,7 @@ function stickyNoteTextConfig(data: StickyNoteShapeData): Record<string, unknown
     fontFamily: data.fontFamily,
     fontSize: data.fontSize,
     fill: data.textColor,
-    fontStyle,
-    textDecoration,
+    ...textStyleAttrs(data),
     wrap: 'word',
   }
 }
@@ -271,14 +269,39 @@ function syncNode(
   if (existing) {
     existing.destroy()
   }
-  const created = isOpenArrow(data)
-    ? createOpenArrowGroup(data)
-    : isStickyNote(data)
-      ? createStickyNoteGroup(data)
-      : createNode(data, configFor(data))
+  const created = createNode(data, configFor(data))
   map.set(key, created)
   layer.add(created)
   applyStyle(created)
+}
+
+/** Gleicht die Rects in `map` mit `configs` ab: aktualisiert/erzeugt vorhandene Keys, zerstört alle übrigen. */
+function syncRects(layer: Konva.Layer, map: Map<string, Konva.Rect>, configs: Map<string, Konva.RectConfig>): void {
+  for (const [key, config] of configs) {
+    const existing = map.get(key)
+    if (existing) {
+      existing.setAttrs(config)
+    } else {
+      const rect = new Konva.Rect(config)
+      map.set(key, rect)
+      layer.add(rect)
+    }
+  }
+  for (const [key, rect] of map) {
+    if (!configs.has(key)) {
+      rect.destroy()
+      map.delete(key)
+    }
+  }
+}
+
+/** Angezeigte Daten eines Objekts inkl. lokaler Resize- bzw. Verschiebe-Vorschau. */
+function displayedData(obj: CanvasObjectDto): ShapeData {
+  const resizePreview = selectionStore.resizePreview
+  const moveDelta = selectionStore.moveDelta
+  let data = resizePreview && resizePreview.id === obj.id ? resizePreview.data : obj.data
+  if (moveDelta && selectionStore.selectedIds.has(obj.id)) data = translateShapeData(data, moveDelta.dx, moveDelta.dy)
+  return data
 }
 
 export function konvaStage(node: HTMLDivElement): { destroy(): void } {
@@ -359,22 +382,16 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
     })
 
     $effect(() => {
-      const current = canvasStore.objects
-      const selected = selectionStore.selectedIds
-      const moveDelta = selectionStore.moveDelta
-      const resizePreview = selectionStore.resizePreview
       const seen = new Set<string>()
-      for (const obj of current) {
+      const selectionConfigs = new Map<string, Konva.RectConfig>()
+      for (const obj of canvasStore.objects) {
         seen.add(obj.id)
-        const isSelected = selected.has(obj.id)
-        let data = obj.data
-        if (isSelected && moveDelta) data = translateShapeData(data, moveDelta.dx, moveDelta.dy)
-        if (resizePreview && resizePreview.id === obj.id) data = resizePreview.data
+        const data = displayedData(obj)
         syncNode(layer, nodesById, obj.id, data, () => {})
 
-        if (isSelected) {
+        if (selectionStore.selectedIds.has(obj.id)) {
           const b = paddedBoundsForSelection(data)
-          const rectConfig = {
+          selectionConfigs.set(obj.id, {
             x: b.minX,
             y: b.minY,
             width: b.maxX - b.minX,
@@ -384,21 +401,7 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
             dash: [4, 3],
             strokeScaleEnabled: false,
             listening: false,
-          }
-          const existingRect = selectionRectsById.get(obj.id)
-          if (existingRect) {
-            existingRect.setAttrs(rectConfig)
-          } else {
-            const rect = new Konva.Rect(rectConfig)
-            selectionRectsById.set(obj.id, rect)
-            selectionLayer.add(rect)
-          }
-        } else {
-          const existingRect = selectionRectsById.get(obj.id)
-          if (existingRect) {
-            existingRect.destroy()
-            selectionRectsById.delete(obj.id)
-          }
+          })
         }
       }
       for (const [id, konvaNode] of nodesById) {
@@ -407,65 +410,38 @@ export function konvaStage(node: HTMLDivElement): { destroy(): void } {
           nodesById.delete(id)
         }
       }
-      for (const [id, rect] of selectionRectsById) {
-        if (!seen.has(id)) {
-          rect.destroy()
-          selectionRectsById.delete(id)
-        }
-      }
+      syncRects(selectionLayer, selectionRectsById, selectionConfigs)
       layer.batchDraw()
       selectionLayer.batchDraw()
     })
 
     $effect(() => {
       const selected = selectionStore.selectedIds
-      const moveDelta = selectionStore.moveDelta
-      const resizePreview = selectionStore.resizePreview
       const hoveredId = selectionStore.hoveredHandleId
-      const scale = viewportStore.scale
-      const sizeWorld = HANDLE_SIZE_PX / scale
+      const sizeWorld = HANDLE_SIZE_PX / viewportStore.scale
 
-      let handles: Array<{ id: string; x: number; y: number }> = []
+      let handles: HandlePosition[] = []
       if (selected.size === 1) {
         const [id] = selected
         const obj = canvasStore.objects.find((o) => o.id === id)
-        if (obj) {
-          let data = resizePreview && resizePreview.id === id ? resizePreview.data : obj.data
-          if (moveDelta) data = translateShapeData(data, moveDelta.dx, moveDelta.dy)
-          handles = handlePositionsFor(data)
-        }
+        if (obj) handles = handlePositionsFor(displayedData(obj))
       }
 
-      const seen = new Set<string>()
+      const handleConfigs = new Map<string, Konva.RectConfig>()
       for (const h of handles) {
-        seen.add(h.id)
-        const isHovered = hoveredId === h.id
-        const config = {
+        handleConfigs.set(h.id, {
           x: h.x - sizeWorld / 2,
           y: h.y - sizeWorld / 2,
           width: sizeWorld,
           height: sizeWorld,
-          fill: isHovered ? HANDLE_HOVER_FILL : HANDLE_FILL,
+          fill: hoveredId === h.id ? HANDLE_HOVER_FILL : HANDLE_FILL,
           stroke: SELECTION_COLOR,
           strokeWidth: 1,
           strokeScaleEnabled: false,
           listening: false,
-        }
-        const existing = handleRectsById.get(h.id)
-        if (existing) {
-          existing.setAttrs(config)
-        } else {
-          const rect = new Konva.Rect(config)
-          handleRectsById.set(h.id, rect)
-          handlesLayer.add(rect)
-        }
+        })
       }
-      for (const [id, rect] of handleRectsById) {
-        if (!seen.has(id)) {
-          rect.destroy()
-          handleRectsById.delete(id)
-        }
-      }
+      syncRects(handlesLayer, handleRectsById, handleConfigs)
       handlesLayer.batchDraw()
     })
 

@@ -1,5 +1,5 @@
 import type { CanvasObjectDto, PointDto, ShapeData } from '../protocol/messages'
-import { distance } from '../geometry/shapeBounds'
+import { distance, rectFromPoints, shapeBounds, type Rect } from '../geometry/shapeBounds'
 
 export interface HandlePosition {
   id: string
@@ -26,26 +26,16 @@ export function handlePositionsFor(data: ShapeData): HandlePosition[] {
       ]
     case 'rect':
     case 'sticky-note':
-      return [
-        { id: 'nw', x: data.x, y: data.y },
-        { id: 'ne', x: data.x + data.width, y: data.y },
-        { id: 'sw', x: data.x, y: data.y + data.height },
-        { id: 'se', x: data.x + data.width, y: data.y + data.height },
-      ]
     case 'circle':
+    case 'ellipse': {
+      const b = shapeBounds(data)
       return [
-        { id: 'nw', x: data.x - data.radius, y: data.y - data.radius },
-        { id: 'ne', x: data.x + data.radius, y: data.y - data.radius },
-        { id: 'sw', x: data.x - data.radius, y: data.y + data.radius },
-        { id: 'se', x: data.x + data.radius, y: data.y + data.radius },
+        { id: 'nw', x: b.minX, y: b.minY },
+        { id: 'ne', x: b.maxX, y: b.minY },
+        { id: 'sw', x: b.minX, y: b.maxY },
+        { id: 'se', x: b.maxX, y: b.maxY },
       ]
-    case 'ellipse':
-      return [
-        { id: 'nw', x: data.x - data.radiusX, y: data.y - data.radiusY },
-        { id: 'ne', x: data.x + data.radiusX, y: data.y - data.radiusY },
-        { id: 'sw', x: data.x - data.radiusX, y: data.y + data.radiusY },
-        { id: 'se', x: data.x + data.radiusX, y: data.y + data.radiusY },
-      ]
+    }
     case 'freehand':
     case 'text':
       return []
@@ -69,15 +59,8 @@ export function hitTestHandle(point: PointDto, data: ShapeData, scale: number): 
   return closestId
 }
 
-interface RectCorners {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
 /** Ecke, die beim Ziehen von `handleId` FIX bleibt (gegenüberliegende Ecke). */
-function fixedCornerFor(rect: RectCorners, handleId: string): PointDto {
+function fixedCornerFor(rect: Rect, handleId: string): PointDto {
   switch (handleId) {
     case 'nw':
       return { x: rect.x + rect.width, y: rect.y + rect.height }
@@ -91,14 +74,8 @@ function fixedCornerFor(rect: RectCorners, handleId: string): PointDto {
   }
 }
 
-function resizeRectLike(rect: RectCorners, handleId: string, newPoint: PointDto): RectCorners {
-  const fixed = fixedCornerFor(rect, handleId)
-  return {
-    x: Math.min(fixed.x, newPoint.x),
-    y: Math.min(fixed.y, newPoint.y),
-    width: Math.abs(newPoint.x - fixed.x),
-    height: Math.abs(newPoint.y - fixed.y),
-  }
+function resizeRectLike(rect: Rect, handleId: string, newPoint: PointDto): Rect {
+  return rectFromPoints(fixedCornerFor(rect, handleId), newPoint)
 }
 
 /** Berechnet die aktualisierte ShapeData für das Ziehen von `handleId` nach `newPoint` (Weltkoordinaten). */
