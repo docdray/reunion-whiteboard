@@ -4,11 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "npm run generate:api:backend",
     "dev": "vite",
     "generate:api": "openapi-typescript ../backend/target/openapi/openapi.json -o src/lib/protocol/generated/api.ts",
+    "generate:api:backend": "cd ../backend && ./mvnw -q process-classes -Dskip.frontend=true && cd ../frontend && npm run generate:api",
     "build": "vite build",
     "preview": "vite preview",
+    "precheck": "npm run generate:api:backend",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "pretest": "npm run generate:api:backend",
     "test": "vitest run",
     "build:backend": "cd ../backend && ./mvnw -q clean package -DskipTests",
     "test:e2e": "npm run build:backend && playwright test"

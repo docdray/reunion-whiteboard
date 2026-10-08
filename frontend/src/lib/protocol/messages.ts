@@ -1,6 +1,7 @@
 // Kurze Namen für die Typen des Backend-JSON-Protokolls (REST + WebSocket). Die Typen selbst
-// kommen aus `./generated/api.ts`, das aus dem OpenAPI-Schema des Backends erzeugt wird
-// (beim Maven-Build automatisch, sonst: Backend kompilieren, dann `npm run generate:api`).
+// kommen aus `./generated/api.ts` (nicht in Git), das aus dem OpenAPI-Schema des Backends erzeugt
+// wird: automatisch beim Maven-Build sowie vor `npm run dev`/`test`/`check`
+// (Skript `generate:api:backend`).
 // Felder werden daher in den Kotlin-Klassen geändert, nicht hier. Neue Schemas, die das
 // Frontend braucht, bekommen hier von Hand einen Alias.
 

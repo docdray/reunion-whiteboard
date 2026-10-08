@@ -17,6 +17,8 @@ dist/
 .vite/
 playwright-report/
 test-results/
+# Aus dem OpenAPI-Schema des Backends generiert (npm run generate:api)
+/frontend/src/lib/protocol/generated/
 
 # IDE
 .idea

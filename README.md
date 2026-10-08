@@ -19,6 +19,8 @@ cd backend && ./mvnw quarkus:dev
 cd frontend && npm run dev
 ```
 
+Die TypeScript-Typen des Backend-Protokolls (`frontend/src/lib/protocol/generated/api.ts`) werden aus dem OpenAPI-Schema des Backends generiert und sind nicht in Git. `npm run dev`, `npm test` und `npm run check` kompilieren dafür vorher automatisch das Backend (`npm run generate:api:backend`), deshalb wird auch für die reine Frontend-Arbeit ein JDK benötigt.
+
 ## Produktions-Build (einzelnes Artefakt)
 
 ```shell script

@@ -65,7 +65,7 @@ Welche Datei ist wofür zuständig. Testdateien (`*.test.ts`, `*Test.kt`) liegen
 
 | Datei | Aufgabe |
 |---|---|
-| `package.json` | Abhängigkeiten und npm-Skripte (u. a. `generate:api`) |
+| `package.json` | Abhängigkeiten und npm-Skripte (u. a. `generate:api`, `generate:api:backend` als Vorstufe von `dev`/`test`/`check`) |
 | `vite.config.ts` | Vite-Build, Dev-Proxy (`/api`, `/ws` → Port 8080), Vitest-Konfiguration (jsdom) |
 | `playwright.config.ts` | E2E-Tests gegen das gebaute JAR auf Port 8080 |
 | `svelte.config.js`, `tsconfig*.json` | Svelte- und TypeScript-Konfiguration |
@@ -108,7 +108,7 @@ Welche Datei ist wofür zuständig. Testdateien (`*.test.ts`, `*Test.kt`) liegen
 
 | Datei | Aufgabe |
 |---|---|
-| `generated/api.ts` | **Generiert** (openapi-typescript) aus dem OpenAPI-Schema des Backends – nicht von Hand ändern |
+| `generated/api.ts` | **Generiert** (openapi-typescript) aus dem OpenAPI-Schema des Backends, nicht in Git; entsteht beim Maven-Build bzw. vor `npm run dev`/`test`/`check` |
 | `messages.ts` | Kurze Namen für die generierten Protokolltypen (Form-Daten, DTOs, Nachrichten); einziger Import-Punkt für den restlichen Code |
 
 **Zustand (`stores/`, Svelte-5-Runes)**
