@@ -83,7 +83,7 @@ Welche Datei ist wofür zuständig. Testdateien (`*.test.ts`, `*Test.kt`) liegen
 | `NameEntry.svelte` | Eingabe des Anzeigenamens |
 | `CanvasList.svelte` | Canvas-Liste mit Anlegen-Formular, live über Lobby-WebSocket |
 | `CanvasListItem.svelte` | Eine Zeile der Liste (Öffnen, Löschen nur ohne aktive Nutzer) |
-| `CanvasView.svelte` | Canvas-Seite: WebSocket-Verbindung, Verarbeitung der Server-Nachrichten, Maus-/Tastatur-Events, Pan/Zoom, Verbindungsstatus, Verdrahtung der Interaktionsmodi |
+| `CanvasView.svelte` | Canvas-Seite: WebSocket-Verbindung, Verarbeitung der Server-Nachrichten, Maus-/Tastatur-Events, Pan/Zoom, Randglühen für Objekte außerhalb der Ansicht, Verbindungsstatus, Verdrahtung der Interaktionsmodi |
 | `Toolbar.svelte` | Werkzeugleiste; wendet Stiländerungen bei aktiver Selektion auf markierte Objekte an |
 | `ModeSwitch.svelte` | Umschalter Navigation / Zeichnen / Markieren |
 | `ToolPicker.svelte` | Auswahl des Zeichenwerkzeugs (inkl. Radierer) |
@@ -146,6 +146,7 @@ Welche Datei ist wofür zuständig. Testdateien (`*.test.ts`, `*Test.kt`) liegen
 | `gridLines.ts` | Hintergrundgitter passend zum Zoom |
 | `zoomToCursor.ts` | Zoom um die Mausposition, Zoomgrenzen |
 | `centerView.ts` | Viewport so berechnen, dass alle Objekte sichtbar und zentriert sind |
+| `offscreenEdges.ts` | An welchen Rändern der Ansicht Objekte außerhalb des sichtbaren Bereichs liegen (für das blaue Randglühen) |
 
 **Rendering (`konva/`)**
 
