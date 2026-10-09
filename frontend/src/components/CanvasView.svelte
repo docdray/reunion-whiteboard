@@ -12,6 +12,7 @@
   import { zoomToCursor, wheelScaleFactor } from '../lib/geometry/zoomToCursor'
   import { centerView } from '../lib/geometry/centerView'
   import { shapeBounds, unionBounds } from '../lib/geometry/shapeBounds'
+  import { offscreenEdges } from '../lib/geometry/offscreenEdges'
   import { DrawInteraction } from '../lib/interaction/drawMode'
   import { SelectInteraction } from '../lib/interaction/selectMode'
   import { ResizeInteraction } from '../lib/interaction/resizeMode'
@@ -37,6 +38,8 @@
   let lastDrawPreviewSendAt = 0
   let eraserPointer = $state<{ x: number; y: number } | null>(null)
   let connectionStatus = $state<ConnectionStatus>('connecting')
+  let viewWidth = $state(0)
+  let viewHeight = $state(0)
 
   const CURSOR_SEND_INTERVAL_MS = 50
   const DRAW_PREVIEW_SEND_INTERVAL_MS = 50
@@ -302,6 +305,15 @@
     Object.values(presenceStore.users).filter((u) => u.cursorX != null && u.cursorY != null),
   )
 
+  const glowingEdges = $derived(
+    offscreenEdges(
+      canvasStore.objects.map((o) => shapeBounds(o.data)),
+      { panX: viewportStore.panX, panY: viewportStore.panY, scale: viewportStore.scale },
+      viewWidth,
+      viewHeight,
+    ),
+  )
+
   function marqueeStyle(rect: { x: number; y: number; width: number; height: number }): string {
     const left = rect.x * viewportStore.scale + viewportStore.panX
     const top = rect.y * viewportStore.scale + viewportStore.panY
@@ -313,6 +325,8 @@
 
 <div
   bind:this={containerEl}
+  bind:clientWidth={viewWidth}
+  bind:clientHeight={viewHeight}
   class="canvas-container"
   role="application"
   use:konvaStage
@@ -349,6 +363,9 @@
     style={`left:${eraserPreview.x - eraserPreview.radius}px; top:${eraserPreview.y - eraserPreview.radius}px; width:${eraserPreview.radius * 2}px; height:${eraserPreview.radius * 2}px;`}
   ></div>
 {/if}
+{#each ['top', 'right', 'bottom', 'left'] as const as edge (edge)}
+  <div class="edge-glow edge-glow-{edge}" class:visible={glowingEdges[edge]}></div>
+{/each}
 {#if connectionStatus !== 'connected'}
   <div class="connection-banner">
     {connectionStatus === 'connecting' ? 'Verbinde …' : 'Verbindung unterbrochen – verbinde erneut …'}
@@ -402,6 +419,54 @@
     border: 1px dashed #d94a4a;
     border-radius: 50%;
     background: rgba(217, 74, 74, 0.08);
+  }
+
+  /* Blaues Glühen am Rand: in dieser Richtung liegen Objekte außerhalb der Ansicht. */
+  .edge-glow {
+    position: fixed;
+    pointer-events: none;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    --glow: rgba(40, 120, 255, 0.45);
+  }
+
+  .edge-glow.visible {
+    opacity: 1;
+  }
+
+  .edge-glow-top,
+  .edge-glow-bottom {
+    left: 0;
+    right: 0;
+    height: 14px;
+  }
+
+  .edge-glow-left,
+  .edge-glow-right {
+    top: 0;
+    bottom: 0;
+    width: 14px;
+  }
+
+  .edge-glow-top {
+    top: 0;
+    background: linear-gradient(to bottom, var(--glow), transparent);
+  }
+
+  .edge-glow-bottom {
+    bottom: 0;
+    background: linear-gradient(to top, var(--glow), transparent);
+  }
+
+  .edge-glow-left {
+    left: 0;
+    background: linear-gradient(to right, var(--glow), transparent);
+  }
+
+  .edge-glow-right {
+    right: 0;
+    background: linear-gradient(to left, var(--glow), transparent);
   }
 
   .connection-banner {
